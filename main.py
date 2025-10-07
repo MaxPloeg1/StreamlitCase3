@@ -1,4 +1,4 @@
-# 🚆 NS: LondOnderweg! — Volledig werkende Streamlit App
+# 🚆 NS: LondOnderweg! — Fixed Streamlit App
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -26,19 +26,38 @@ p, label, span, .stMetric-label, .stMetric-value {color: white !important;}
 # ----------------------------------------------------------
 @st.cache_data
 def load_data():
-    stations = pd.read_csv("cycle_stations.csv")
-    rentals = pd.read_csv("bike_rentals.csv")
-    weather = pd.read_csv("weather_london.csv")
-    return stations, rentals, weather
+    try:
+        stations = pd.read_csv("cycle_stations.csv")
+        rentals = pd.read_csv("bike_rentals.csv")
+        weather = pd.read_csv("weather_london.csv")
+        return stations, rentals, weather
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None, None, None
 
-stations, rentals, weather = load_data()
+# Load data with error handling
+data_result = load_data()
+if data_result[0] is not None:
+    stations, rentals, weather = data_result
+else:
+    st.error("❌ Failed to load data. Please check that all CSV files are present.")
+    st.stop()
 
 # ----------------------------------------------------------
 # 🧩 DATA VOORBEREIDING
 # ----------------------------------------------------------
-# Hernoem kolom ‘long’ naar ‘lon’
+# Hernoem kolom 'long' naar 'lon' voor Streamlit map compatibility
 if "long" in stations.columns:
     stations = stations.rename(columns={"long": "lon"})
+    st.sidebar.success("✅ Renamed 'long' to 'lon'")
+
+# Controleer of vereiste kolommen bestaan
+required_cols = ["lat", "lon", "nbBikes", "name"]
+missing_cols = [col for col in required_cols if col not in stations.columns]
+if missing_cols:
+    st.sidebar.error(f"❌ Missing columns: {missing_cols}")
+    st.error(f"Missing required columns in stations data: {missing_cols}")
+    st.stop()
 
 # Kolomnamen
 lat_col, lon_col = "lat", "lon"
@@ -65,13 +84,13 @@ with tab1:
     c1, c2, c3 = st.columns(3)
     with c1:
         st.subheader("🚲 cycle_stations.csv")
-        st.dataframe(stations.head())
+        st.dataframe(stations.head(), use_container_width=True)
     with c2:
         st.subheader("📅 bike_rentals.csv")
-        st.dataframe(rentals.head())
+        st.dataframe(rentals.head(), use_container_width=True)
     with c3:
         st.subheader("🌦️ weather_london.csv")
-        st.dataframe(weather.head())
+        st.dataframe(weather.head(), use_container_width=True)
 
 # ----------------------------------------------------------
 # 🚲 TAB 2 — KAART MET FIETSSTATIONS (Folium)
@@ -124,7 +143,7 @@ with tab3:
         weather_factor = st.selectbox("Kies een weerfactor:", ["tavg", "tmin", "tmax", "prcp", "tsun"])
 
         # Plot regressie
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(10, 6))
         sns.regplot(
             data=weather, x=weather_factor, y="rentals",
             scatter_kws={'alpha':0.6, 'color':'#FFD700'}, line_kws={'color':'red'}
@@ -134,15 +153,16 @@ with tab3:
         ax.set_ylabel("Aantal fietsverhuringen", color="white")
         fig.patch.set_facecolor("#111")
         ax.set_facecolor("#111")
-        st.pyplot(fig)
+        st.pyplot(fig, use_container_width=True)
 
         # Correlatiematrix
         st.subheader("📊 Correlatiematrix van weerdata")
         corr = weather.corr(numeric_only=True)
-        fig2, ax2 = plt.subplots()
+        fig2, ax2 = plt.subplots(figsize=(10, 8))
         sns.heatmap(corr, annot=True, cmap="YlOrBr", ax=ax2)
-        st.pyplot(fig2)
+        ax2.set_title("Correlatiematrix Weerdata", color="white")
+        fig2.patch.set_facecolor("#111")
+        st.pyplot(fig2, use_container_width=True)
     else:
         st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
-
-
+        st.write("Beschikbare kolommen:", list(weather.columns))
