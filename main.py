@@ -44,7 +44,7 @@ with tab1:
     bike = pd.read_csv("bike_rentals.csv")
     weather = pd.read_csv("weather_london.csv")
     stations = pd.read_csv("bike_rentals.csv")
-    
+
     # Toon kolomnamen (handig voor debuggen)
     st.write("📋 Kolomnamen in cycle_stations.csv:", list(stations.columns))
     st.write("📋 Kolommen in bike_rentals.csv:", list(bike.columns))
@@ -82,7 +82,7 @@ with tab1:
 with tab2:
     st.header("London Fiets- en Metrokaarten")
     stations = pd.read_csv("cycle_stations.csv")
-    st.map(stations[["lat", "lon"]].dropna(), zoom=10)
+    st.map(stations[["lat", "long"]].dropna(), zoom=10)
 
     st.markdown("💡 Klik rechtsboven om lagen aan/uit te zetten (zoals metrostations).")
 
