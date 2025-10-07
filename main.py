@@ -43,7 +43,8 @@ with tab1:
     # Data inladen
     bike = pd.read_csv("bike_rentals.csv")
     weather = pd.read_csv("weather_london.csv")
-
+    stations = pd.read_csv("bike_rentals.csv")
+    
     # Toon kolomnamen (handig voor debuggen)
     st.write("📋 Kolomnamen in cycle_stations.csv:", list(stations.columns))
     st.write("📋 Kolommen in bike_rentals.csv:", list(bike.columns))
