@@ -39,16 +39,42 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 # --- TAB 1: Data Exploration ---
 with tab1:
     st.header("Fietsverhuur en Weerdata")
-    weather = pd.read_csv("weather_london.csv")
-    bike = pd.read_csv("bike_rentals.csv")
 
-    if "tavg" in weather.columns:
-        merged = pd.concat([bike["Count"], weather["tavg"]], axis=1)
-        fig = px.scatter(merged, x="tavg", y="Count", trendline="ols",
-                         title="Relatie tussen temperatuur en fietshuur")
-        st.plotly_chart(fig, use_container_width=True)
+    # Data inladen
+    bike = pd.read_csv("bike_rentals.csv")
+    weather = pd.read_csv("weather_london.csv")
+
+    # Toon kolomnamen (handig voor debuggen)
+    st.write("📋 Kolommen in bike_rentals.csv:", list(bike.columns))
+    st.write("📋 Kolommen in weather_london.csv:", list(weather.columns))
+
+    # Slimme automatische herkenning van relevante kolommen
+    bike_col = None
+    for c in bike.columns:
+        if any(x in c.lower() for x in ["count", "rentals", "number", "total", "rides"]):
+            bike_col = c
+            break
+
+    temp_col = None
+    for c in weather.columns:
+        if any(x in c.lower() for x in ["tavg", "temp", "temperature", "mean"]):
+            temp_col = c
+            break
+
+    # Controle
+    if not bike_col or not temp_col:
+        st.error(f"❌ Kon kolommen niet vinden. Gevonden fiets={bike_col}, weer={temp_col}")
     else:
-        st.warning("❌ Kolom 'tavg' niet gevonden in weather_london.csv")
+        st.success(f"Gevonden kolommen → Fiets: `{bike_col}` | Weer: `{temp_col}`")
+
+        merged = pd.concat([bike[bike_col], weather[temp_col]], axis=1)
+        merged.columns = ["BikeRentals", "Temperature"]
+
+        fig = px.scatter(
+            merged, x="Temperature", y="BikeRentals",
+            trendline="ols", title="Relatie tussen temperatuur en fietshuur"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # --- TAB 2: London Maps ---
 with tab2:
@@ -82,4 +108,5 @@ with tab5:
     Dit dashboard is geïnspireerd op de **NS-huisstijl** en gebaseerd op datasets over Londense mobiliteit.
     Gemaakt door **Julen Schalker** en teamgenoten voor de HvA Datascience Minor.
     """)
+
 
