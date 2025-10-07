@@ -206,3 +206,6 @@ with tab3:
     else:
         st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
         st.write("Beschikbare kolommen:", list(weather.columns))
+
+
+# ----------------------------------------------------------
