@@ -136,46 +136,35 @@ with tab3:
     if "tavg" in weather.columns:
         st.success("✅ Weerdata succesvol geladen!")
 
-        # Prepareer echte rental data
+        # Prepareer echte rental data - simpel en direct
         try:
-            # Extract date from rental data and count rentals per day
+            # Extract date from rental Start Date and count rentals per day
             rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], format='%d/%m/%Y %H:%M', errors='coerce')
             rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
             rentals_per_day.columns = ['date', 'rentals']
             rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
             
-            # Add date column to weather - use the 'Unnamed: 0' column which contains dates
+            # Add date column to weather data
             weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
             
-            # Check date ranges
-            rental_start = rentals_per_day['date'].min()
-            rental_end = rentals_per_day['date'].max()
-            weather_start = weather['date'].min()
-            weather_end = weather['date'].max()
+            # Merge weather with rental counts
+            weather_data = weather.merge(rentals_per_day, on='date', how='left')
+            weather_data['rentals'] = weather_data['rentals'].fillna(0)
             
-            st.info(f"📅 Rental data: {rental_start.strftime('%Y-%m-%d')} tot {rental_end.strftime('%Y-%m-%d')}")
-            st.info(f"🌤️ Weather data: {weather_start.strftime('%Y-%m-%d')} tot {weather_end.strftime('%Y-%m-%d')}")
-            
-            # Merge weather with actual rental counts
-            weather_with_rentals = weather.merge(rentals_per_day, on='date', how='left')
-            weather_with_rentals['rentals'] = weather_with_rentals['rentals'].fillna(0)
-            
-            # Use the merged data for analysis
-            weather_data = weather_with_rentals[weather_with_rentals['rentals'] > 0]
+            # Filter to only days with rentals
+            weather_data = weather_data[weather_data['rentals'] > 0]
             
             if len(weather_data) > 0:
-                st.success(f"✅ {len(weather_data)} dagen met overlappende weer- en rental data gevonden!")
+                st.success(f"✅ {len(weather_data)} dagen met weer- en rental data!")
                 st.info(f"Gemiddeld {weather_data['rentals'].mean():.0f} verhuur per dag")
             else:
-                st.warning("⚠️ Geen overlappende datums gevonden tussen weather (2000-2023) en rentals (2022). Gebruik gesimuleerde data.")
-                # Fallback to simulated data if no overlap
+                st.warning("⚠️ Geen overlappende datums. Gebruik gesimuleerde data.")
                 np.random.seed(42)
                 weather_data = weather.copy()
                 weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
                 
         except Exception as e:
-            st.warning(f"⚠️ Kon rental data niet verwerken: {e}. Gebruik gesimuleerde data.")
-            # Fallback to simulated data
+            st.warning(f"⚠️ Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
             np.random.seed(42)
             weather_data = weather.copy()
             weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
