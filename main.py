@@ -146,3 +146,4 @@ with tab3:
         st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
 
 
+
