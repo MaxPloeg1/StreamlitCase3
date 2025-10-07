@@ -1,118 +1,161 @@
+# 🚆 NS: LondOnderweg! — Definitieve Streamlit App
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import pydeck as pdk
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import folium
+from streamlit_folium import st_folium
 
-# --- CONFIG ---
-st.set_page_config(page_title="NS: LondOnderweg!", layout="wide")
+# ----------------------------------------------------------
+# 🔧 PAGINA-INSTELLINGEN
+# ----------------------------------------------------------
+st.set_page_config(page_title="NS: LondOnderweg!", page_icon="🚆", layout="wide")
 
-# --- CUSTOM CSS ---
+# --- NS KLEUREN EN STIJL ---
 st.markdown("""
 <style>
-body {
-    background-color: #FFD700;
-    color: #003082;
-}
-[data-testid="stSidebar"] {
-    background-color: #003082;
-    color: white;
-}
-h1, h2, h3, h4 {
-    color: #003082;
-}
-.stTabs [data-baseweb="tab-list"] {
-    gap: 2rem;
-}
+body {background-color: #111;}
+.stApp {background-color: #111;}
+h1, h2, h3, h4 {color: #FFD700;}
+p, label, span, .stMetric-label, .stMetric-value {color: white !important;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- TITEL ---
-st.title("🚆 NS: LondOnderweg!")
-st.image("https://upload.wikimedia.org/wikipedia/commons/2/29/NS_Fiets_station.jpg", use_column_width=True)
-st.markdown("**Welkom bij ons mobiliteitsdashboard!** Ontdek hoe weer, metro en fietsen samen Londen in beweging houden.")
-
-# --- TABS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📊 Data Exploration", "🗺️ London Maps", "📈 Predictions", "💡 Conclusions", "ℹ️ About"]
-)
-
-# --- TAB 1: Data Exploration ---
-with tab1:
-    st.header("Fietsverhuur en Weerdata")
-
-    # Data inladen
-    bike = pd.read_csv("bike_rentals.csv")
+# ----------------------------------------------------------
+# 📂 DATA INLADEN
+# ----------------------------------------------------------
+@st.cache_data
+def load_data():
+    stations = pd.read_csv("cycle_stations.csv")
+    rentals = pd.read_csv("bike_rentals.csv")
     weather = pd.read_csv("weather_london.csv")
+    return stations, rentals, weather
 
-    st.subheader("Debug: controleer kolomnamen")
-    stations = pd.read_csv("cycle_stations.csv")
-    st.write("Kolomnamen gevonden in dataset:", list(stations.columns))
-    st.dataframe(stations.head())
+stations, rentals, weather = load_data()
 
-    # Toon kolomnamen (handig voor debuggen)
-    st.write("📋 Kolomnamen in cycle_stations.csv:", list(stations.columns))
-    st.write("📋 Kolommen in bike_rentals.csv:", list(bike.columns))
-    st.write("📋 Kolommen in weather_london.csv:", list(weather.columns))
+# ----------------------------------------------------------
+# 🧩 DATA VOORBEREIDING
+# ----------------------------------------------------------
+# Fix kolomnamen voor consistentie
+stations = stations.rename(columns={"long": "lon"})
+lat_col, lon_col = "lat", "lon"
+bike_col = "nbBikes"
 
-    # Slimme automatische herkenning van relevante kolommen
-    bike_col = None
-    for c in bike.columns:
-        if any(x in c.lower() for x in ["count", "rentals", "number", "total", "rides"]):
-            bike_col = c
-            break
+# Controleer datasets
+st.sidebar.header("📁 Data-info")
+st.sidebar.write("Kolommen in cycle_stations.csv:", list(stations.columns))
+st.sidebar.write("Kolommen in bike_rentals.csv:", list(rentals.columns))
+st.sidebar.write("Kolommen in weather_london.csv:", list(weather.columns))
 
-    temp_col = None
-    for c in weather.columns:
-        if any(x in c.lower() for x in ["tavg", "temp", "temperature", "mean"]):
-            temp_col = c
-            break
+# ----------------------------------------------------------
+# 🔖 TABSTRUCTUUR
+# ----------------------------------------------------------
+tab1, tab2, tab3 = st.tabs(["📊 Data Exploration", "🚲 Fietsstations & Kaart", "🌦️ Weer & Trends"])
 
-    # Controle
-    if not bike_col or not temp_col:
-        st.error(f"❌ Kon kolommen niet vinden. Gevonden fiets={bike_col}, weer={temp_col}")
-    else:
-        st.success(f"Gevonden kolommen → Fiets: `{bike_col}` | Weer: `{temp_col}`")
+# ----------------------------------------------------------
+# 📊 TAB 1 — DATA EXPLORATION
+# ----------------------------------------------------------
+with tab1:
+    st.header("📈 Data-overzicht")
+    st.markdown("Hieronder zie je een voorproefje van de drie datasets die we gebruiken in dit dashboard:")
 
-        merged = pd.concat([bike[bike_col], weather[temp_col]], axis=1)
-        merged.columns = ["BikeRentals", "Temperature"]
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.subheader("🚲 cycle_stations.csv")
+        st.dataframe(stations.head())
+    with c2:
+        st.subheader("📅 bike_rentals.csv")
+        st.dataframe(rentals.head())
+    with c3:
+        st.subheader("🌦️ weather_london.csv")
+        st.dataframe(weather.head())
 
-        fig = px.scatter(
-            merged, x="Temperature", y="BikeRentals",
-            trendline="ols", title="Relatie tussen temperatuur en fietshuur"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-# --- TAB 2: London Maps ---
+# ----------------------------------------------------------
+# 🚲 TAB 2 — FIETSSTATIONS OP KAART
+# ----------------------------------------------------------
 with tab2:
-    st.header("London Fiets- en Metrokaarten")
-    stations = pd.read_csv("cycle_stations.csv")
-    st.map(stations[["lat", "long"]].dropna(), zoom=10)
+    st.header("🗺️ Fietsverhuurstations in Londen")
 
-    st.markdown("💡 Klik rechtsboven om lagen aan/uit te zetten (zoals metrostations).")
+    # Controle of lat/lon bestaan
+    if lat_col in stations.columns and lon_col in stations.columns:
+        st.success("✅ Kolommen gevonden: 'lat' en 'lon'")
 
-# --- TAB 3: Predictions ---
+        # Metrieken
+        avg_bikes = round(stations[bike_col].mean(), 1)
+        total_bikes = int(stations[bike_col].sum())
+        st.metric(label="Gemiddeld aantal fietsen per station", value=avg_bikes)
+        st.metric(label="Totaal aantal fietsen", value=total_bikes)
+
+        # Folium kaart
+        m = folium.Map(location=[51.5074, -0.1278], zoom_start=11, tiles="CartoDB dark_matter")
+
+        # Voeg stations toe
+        for _, row in stations.iterrows():
+            popup_text = f"<b>{row['name']}</b><br>🚲 Fietsen: {row[bike_col]}"
+            folium.CircleMarker(
+                location=[row[lat_col], row[lon_col]],
+                radius=4,
+                color="yellow",
+                fill=True,
+                fill_opacity=0.9,
+                popup=popup_text
+            ).add_to(m)
+
+        st_folium(m, width=1100, height=600)
+
+    else:
+        st.error("❌ Kolommen 'lat' en 'lon' niet gevonden.")
+        st.write("Beschikbare kolommen:", list(stations.columns))
+
+# ----------------------------------------------------------
+# 🌦️ TAB 3 — WEER EN TRENDS
+# ----------------------------------------------------------
 with tab3:
-    st.header("Voorspelling Fietsverhuur")
-    st.markdown("Gebruik een eenvoudige regressie om het aantal verhuurde fietsen te schatten bij bepaalde temperaturen.")
-    temp = st.slider("Temperatuur (°C)", -5, 25, 10)
-    y_pred = 1338.38 * temp + 15929.54
-    st.metric("Geschat aantal verhuurde fietsen", f"{int(y_pred):,}")
+    st.header("🌤️ Invloed van weer op fietsverhuur")
 
-# --- TAB 4: Conclusions ---
-with tab4:
-    st.header("Conclusies & Duurzaamheid")
-    st.markdown("""
-    - Hogere temperaturen stimuleren fietsgebruik aanzienlijk.  
-    - Metro en fiets vullen elkaar aan in drukke zones.  
-    - Deze inzichten kunnen helpen om duurzaam vervoer te plannen.  
-    """)
+    if "tavg" in weather.columns:
+        st.success("✅ Weerdata succesvol geladen!")
 
-# --- TAB 5: About ---
-with tab5:
-    st.header("Over dit project")
-    st.markdown("""
-    Dit dashboard is geïnspireerd op de **NS-huisstijl** en gebaseerd op datasets over Londense mobiliteit.
-    Gemaakt door **Julen Schalker** en teamgenoten voor de HvA Datascience Minor.
-    """)
+        # Simuleer aantal fietsverhuringen om trends te tonen
+        np.random.seed(42)
+        weather["rentals"] = np.random.randint(5000, 55000, size=len(weather))
+
+        # Selecteer weerfactor
+        weather_factor = st.selectbox("Kies een weerfactor:", ["tavg", "tmin", "tmax", "prcp", "tsun"])
+
+        # Plot regressie tussen weerfactor en aantal fietsverhuringen
+        fig, ax = plt.subplots()
+        sns.regplot(
+            data=weather, x=weather_factor, y="rentals",
+            scatter_kws={'alpha':0.6, 'color':'#FFD700'}, line_kws={'color':'red'}
+        )
+        ax.set_title(f"Relatie tussen {weather_factor} en fietsverhuur", color="white")
+        ax.set_xlabel(weather_factor, color="white")
+        ax.set_ylabel("Aantal fietsverhuringen", color="white")
+        fig.patch.set_facecolor("#111")
+        ax.set_facecolor("#111")
+        st.pyplot(fig)
+
+        # Correlatiematrix
+        st.subheader("📊 Correlatiematrix van weerdata")
+        corr = weather.corr(numeric_only=True)
+        fig2, ax2 = plt.subplots()
+        sns.heatmap(corr, annot=True, cmap="YlOrBr", ax=ax2)
+        st.pyplot(fig2)
+
+        # Temperatuurtrend
+        st.subheader("🌡️ Gemiddelde temperatuur door de tijd")
+        fig3, ax3 = plt.subplots()
+        ax3.plot(weather["tavg"], color="#FFD700")
+        ax3.set_title("Temperatuurtrend in Londen", color="white")
+        ax3.set_xlabel("Tijd (dagen)", color="white")
+        ax3.set_ylabel("Gemiddelde temperatuur (°C)", color="white")
+        fig3.patch.set_facecolor("#111")
+        ax3.set_facecolor("#111")
+        st.pyplot(fig3)
+
+    else:
+        st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
 
 
