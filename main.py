@@ -136,16 +136,56 @@ with tab3:
     if "tavg" in weather.columns:
         st.success("✅ Weerdata succesvol geladen!")
 
-        # Simuleer aantal fietsverhuringen
-        np.random.seed(42)
-        weather["rentals"] = np.random.randint(5000, 55000, size=len(weather))
+        # Prepareer echte rental data
+        try:
+            # Extract date from rental data and count rentals per day
+            rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], format='%d/%m/%Y %H:%M', errors='coerce')
+            rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
+            rentals_per_day.columns = ['date', 'rentals']
+            rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
+            
+            # Add date column to weather - use the 'Unnamed: 0' column which contains dates
+            weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
+            
+            # Check date ranges
+            rental_start = rentals_per_day['date'].min()
+            rental_end = rentals_per_day['date'].max()
+            weather_start = weather['date'].min()
+            weather_end = weather['date'].max()
+            
+            st.info(f"📅 Rental data: {rental_start.strftime('%Y-%m-%d')} tot {rental_end.strftime('%Y-%m-%d')}")
+            st.info(f"🌤️ Weather data: {weather_start.strftime('%Y-%m-%d')} tot {weather_end.strftime('%Y-%m-%d')}")
+            
+            # Merge weather with actual rental counts
+            weather_with_rentals = weather.merge(rentals_per_day, on='date', how='left')
+            weather_with_rentals['rentals'] = weather_with_rentals['rentals'].fillna(0)
+            
+            # Use the merged data for analysis
+            weather_data = weather_with_rentals[weather_with_rentals['rentals'] > 0]
+            
+            if len(weather_data) > 0:
+                st.success(f"✅ {len(weather_data)} dagen met overlappende weer- en rental data gevonden!")
+                st.info(f"Gemiddeld {weather_data['rentals'].mean():.0f} verhuur per dag")
+            else:
+                st.warning("⚠️ Geen overlappende datums gevonden tussen weather (2000-2023) en rentals (2022). Gebruik gesimuleerde data.")
+                # Fallback to simulated data if no overlap
+                np.random.seed(42)
+                weather_data = weather.copy()
+                weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
+                
+        except Exception as e:
+            st.warning(f"⚠️ Kon rental data niet verwerken: {e}. Gebruik gesimuleerde data.")
+            # Fallback to simulated data
+            np.random.seed(42)
+            weather_data = weather.copy()
+            weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
 
         weather_factor = st.selectbox("Kies een weerfactor:", ["tavg", "tmin", "tmax", "prcp", "tsun"])
 
         # Plot regressie
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.regplot(
-            data=weather, x=weather_factor, y="rentals",
+            data=weather_data, x=weather_factor, y="rentals",
             scatter_kws={'alpha':0.6, 'color':'#FFD700'}, line_kws={'color':'red'}
         )
         ax.set_title(f"Relatie tussen {weather_factor} en fietsverhuur", color="white")
@@ -157,7 +197,7 @@ with tab3:
 
         # Correlatiematrix
         st.subheader("📊 Correlatiematrix van weerdata")
-        corr = weather.corr(numeric_only=True)
+        corr = weather_data.corr(numeric_only=True)
         fig2, ax2 = plt.subplots(figsize=(10, 8))
         sns.heatmap(corr, annot=True, cmap="YlOrBr", ax=ax2)
         ax2.set_title("Correlatiematrix Weerdata", color="white")
