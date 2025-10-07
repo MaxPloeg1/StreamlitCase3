@@ -5,3 +5,8 @@ seaborn
 streamlit
 plotly
 windrose
+scikit-learn
+matplotlib
+seaborn
+folium
+streamlit-folium
