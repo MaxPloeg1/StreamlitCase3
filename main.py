@@ -85,11 +85,21 @@ with tab1:
 # --- TAB 2: London Maps ---
 with tab2:
     st.header("London Fiets- en Metrokaarten")
+
     stations = pd.read_csv("cycle_stations.csv")
-    st.map(stations[["lat", "long"]].dropna(), zoom=10)
+    st.write("📋 Kolommen in cycle_stations.csv:", list(stations.columns))
 
-    st.markdown("💡 Klik rechtsboven om lagen aan/uit te zetten (zoals metrostations).")
+    # Automatische herkenning van latitude/longitude
+    lat_col = next((c for c in stations.columns if any(x in c.lower() for x in ["lat", "latitude", "y"])), None)
+    lon_col = next((c for c in stations.columns if any(x in c.lower() for x in ["lon", "lng", "longitude", "x"])), None)
 
+    if lat_col and lon_col:
+        st.success(f"Gevonden coördinatenkolommen → lat: {lat_col}, lon: {lon_col}")
+        st.map(stations[[lat_col, lon_col]].dropna(), zoom=11)
+    else:
+        st.error(f"❌ Geen coördinatenkolommen gevonden. Gevonden lat={lat_col}, lon={lon_col}")
+        st.info("Controleer of je kolommen heten zoals 'Latitude' en 'Longitude'.")
+        
 # --- TAB 3: Predictions ---
 with tab3:
     st.header("Voorspelling Fietsverhuur")
