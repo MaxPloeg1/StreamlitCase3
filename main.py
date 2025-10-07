@@ -45,6 +45,7 @@ with tab1:
     weather = pd.read_csv("weather_london.csv")
 
     # Toon kolomnamen (handig voor debuggen)
+    st.write("📋 Kolomnamen in cycle_stations.csv:", list(stations.columns))
     st.write("📋 Kolommen in bike_rentals.csv:", list(bike.columns))
     st.write("📋 Kolommen in weather_london.csv:", list(weather.columns))
 
