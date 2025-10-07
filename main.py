@@ -43,7 +43,11 @@ with tab1:
     # Data inladen
     bike = pd.read_csv("bike_rentals.csv")
     weather = pd.read_csv("weather_london.csv")
-    stations = pd.read_csv("bike_rentals.csv")
+
+    st.subheader("Debug: controleer kolomnamen")
+    stations = pd.read_csv("cycle_stations.csv")
+    st.write("Kolomnamen gevonden in dataset:", list(stations.columns))
+    st.dataframe(stations.head())
 
     # Toon kolomnamen (handig voor debuggen)
     st.write("📋 Kolomnamen in cycle_stations.csv:", list(stations.columns))
