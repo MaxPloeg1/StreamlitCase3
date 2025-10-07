@@ -1,4 +1,4 @@
-# 🚆 NS: LondOnderweg! — Definitieve Streamlit App
+# 🚆 NS: LondOnderweg! — Volledig werkende Streamlit App
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,7 +12,6 @@ from streamlit_folium import st_folium
 # ----------------------------------------------------------
 st.set_page_config(page_title="NS: LondOnderweg!", page_icon="🚆", layout="wide")
 
-# --- NS KLEUREN EN STIJL ---
 st.markdown("""
 <style>
 body {background-color: #111;}
@@ -37,12 +36,15 @@ stations, rentals, weather = load_data()
 # ----------------------------------------------------------
 # 🧩 DATA VOORBEREIDING
 # ----------------------------------------------------------
-# Fix kolomnamen voor consistentie
-stations = stations.rename(columns={"long": "lon"})
+# Hernoem kolom ‘long’ naar ‘lon’
+if "long" in stations.columns:
+    stations = stations.rename(columns={"long": "lon"})
+
+# Kolomnamen
 lat_col, lon_col = "lat", "lon"
 bike_col = "nbBikes"
 
-# Controleer datasets
+# Debug info in sidebar
 st.sidebar.header("📁 Data-info")
 st.sidebar.write("Kolommen in cycle_stations.csv:", list(stations.columns))
 st.sidebar.write("Kolommen in bike_rentals.csv:", list(rentals.columns))
@@ -58,7 +60,7 @@ tab1, tab2, tab3 = st.tabs(["📊 Data Exploration", "🚲 Fietsstations & Kaart
 # ----------------------------------------------------------
 with tab1:
     st.header("📈 Data-overzicht")
-    st.markdown("Hieronder zie je een voorproefje van de drie datasets die we gebruiken in dit dashboard:")
+    st.markdown("Hieronder zie je voorbeelden van onze drie datasets:")
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -72,16 +74,15 @@ with tab1:
         st.dataframe(weather.head())
 
 # ----------------------------------------------------------
-# 🚲 TAB 2 — FIETSSTATIONS OP KAART
+# 🚲 TAB 2 — KAART MET FIETSSTATIONS (Folium)
 # ----------------------------------------------------------
 with tab2:
     st.header("🗺️ Fietsverhuurstations in Londen")
 
-    # Controle of lat/lon bestaan
+    # Controle of kolommen bestaan
     if lat_col in stations.columns and lon_col in stations.columns:
         st.success("✅ Kolommen gevonden: 'lat' en 'lon'")
 
-        # Metrieken
         avg_bikes = round(stations[bike_col].mean(), 1)
         total_bikes = int(stations[bike_col].sum())
         st.metric(label="Gemiddeld aantal fietsen per station", value=avg_bikes)
@@ -90,7 +91,6 @@ with tab2:
         # Folium kaart
         m = folium.Map(location=[51.5074, -0.1278], zoom_start=11, tiles="CartoDB dark_matter")
 
-        # Voeg stations toe
         for _, row in stations.iterrows():
             popup_text = f"<b>{row['name']}</b><br>🚲 Fietsen: {row[bike_col]}"
             folium.CircleMarker(
@@ -105,7 +105,7 @@ with tab2:
         st_folium(m, width=1100, height=600)
 
     else:
-        st.error("❌ Kolommen 'lat' en 'lon' niet gevonden.")
+        st.error("❌ Kon kolommen niet vinden. Controleer of 'lat' en 'lon' in cycle_stations.csv staan.")
         st.write("Beschikbare kolommen:", list(stations.columns))
 
 # ----------------------------------------------------------
@@ -117,14 +117,13 @@ with tab3:
     if "tavg" in weather.columns:
         st.success("✅ Weerdata succesvol geladen!")
 
-        # Simuleer aantal fietsverhuringen om trends te tonen
+        # Simuleer aantal fietsverhuringen
         np.random.seed(42)
         weather["rentals"] = np.random.randint(5000, 55000, size=len(weather))
 
-        # Selecteer weerfactor
         weather_factor = st.selectbox("Kies een weerfactor:", ["tavg", "tmin", "tmax", "prcp", "tsun"])
 
-        # Plot regressie tussen weerfactor en aantal fietsverhuringen
+        # Plot regressie
         fig, ax = plt.subplots()
         sns.regplot(
             data=weather, x=weather_factor, y="rentals",
@@ -143,18 +142,6 @@ with tab3:
         fig2, ax2 = plt.subplots()
         sns.heatmap(corr, annot=True, cmap="YlOrBr", ax=ax2)
         st.pyplot(fig2)
-
-        # Temperatuurtrend
-        st.subheader("🌡️ Gemiddelde temperatuur door de tijd")
-        fig3, ax3 = plt.subplots()
-        ax3.plot(weather["tavg"], color="#FFD700")
-        ax3.set_title("Temperatuurtrend in Londen", color="white")
-        ax3.set_xlabel("Tijd (dagen)", color="white")
-        ax3.set_ylabel("Gemiddelde temperatuur (°C)", color="white")
-        fig3.patch.set_facecolor("#111")
-        ax3.set_facecolor("#111")
-        st.pyplot(fig3)
-
     else:
         st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
 
