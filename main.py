@@ -377,6 +377,9 @@ with tab4:
     
     if "tavg" in weather.columns:
         st.success("Machine Learning Voorspellingsmodellen")
+
+            if "tavg" in weather.columns:
+        st.success("✅ Weerdata succesvol geladen!")
         
         # Use the same weather_data from tab3
         try:
@@ -656,6 +659,7 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
 
