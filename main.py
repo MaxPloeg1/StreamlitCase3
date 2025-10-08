@@ -202,93 +202,131 @@ with tab3:
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
+
 with tab4:
     st.header("🔮 Voorspellingen - Fietsverhuringen")
 
-    # --- Voorbereiden data ---
-    weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
-    rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], errors='coerce')
-    rentals['date'] = rentals['Start Date'].dt.normalize()
+    try:
+        # 🧹 Stap 1: Data normaliseren & mergen
+        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
+        rentals["date"] = rentals["Start Date"].dt.normalize()
+        rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
 
-    # Filter alleen weerdata uit 2022
-    weather_2022 = weather[weather['date'].dt.year == 2022].copy()
+        if "Unnamed: 0" in weather.columns:
+            weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
+        elif "date" in weather.columns:
+            weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
+        else:
+            st.error("❌ Kon geen datumkolom vinden in de weerdata.")
+            st.stop()
 
-    # Aantal verhuringen per dag
-    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
+        full_data = pd.merge(weather, rentals_per_day, on="date", how="inner")
+        full_data = full_data.dropna(subset=["rentals"])
 
-    # Merge weather + rentals
-    ml_data = pd.merge(weather_2022, rentals_per_day, on="date", how="inner").dropna(subset=["tavg", "rentals"])
+        # 🎯 Stap 2: Feature selectie
+        all_features = ["tavg", "tmin", "tmax", "prcp", "snow", "wdir", "wspd", "pres"]
+        used_features = [f for f in all_features if f in full_data.columns]
+        full_data = full_data.dropna(subset=used_features)
 
-    # Toon status
-    st.success(f"✅ {len(ml_data)} overlappende dagen gevonden voor modeltraining.")
+        overlap_days = len(full_data)
+        if overlap_days < 7:
+            st.error(f"❌ Niet genoeg overlappende data voor training ({overlap_days} dagen).")
+            st.dataframe(full_data[["date", "tavg", "rentals"]])
+            st.stop()
 
-    # Selectie van features
-    st.subheader("⚙️ Model Configuratie")
-    col1, col2 = st.columns(2)
-    with col1:
-        features = st.multiselect(
-            "Selecteer features voor voorspelling:",
-            ["tavg", "tmin", "tmax", "prcp", "wspd", "pres"],
-            default=["tavg", "prcp"]
+        st.success(f"✅ {overlap_days} overlappende dagen gevonden voor modeltraining.")
+
+        # ⚙️ Stap 3: Configuratie
+        st.subheader("⚙️ Model Configuratie")
+        c1, c2 = st.columns(2)
+        with c1:
+            selected_features = st.multiselect(
+                "Selecteer features voor voorspelling:",
+                options=used_features,
+                default=["tavg", "prcp"] if "prcp" in used_features else used_features[:2]
+            )
+        with c2:
+            st.markdown("Kies modeltype (Random Forest aanbevolen):")
+            model_type = st.selectbox("Model", ["Random Forest"], index=0)
+
+        if not selected_features:
+            st.warning("⚠️ Selecteer minimaal één feature.")
+            st.stop()
+
+        # 🧠 Stap 4: Train/Test Split
+        from sklearn.model_selection import train_test_split
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.metrics import r2_score, mean_absolute_error
+
+        X = full_data[selected_features]
+        y = full_data["rentals"]
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.25, random_state=42
         )
-    with col2:
-        model_type = st.selectbox("Kies modeltype:", ["Linear Regression", "Random Forest"])
 
-    if not features:
-        st.warning("⚠️ Selecteer minimaal één feature.")
-        st.stop()
+        model = RandomForestRegressor(n_estimators=150, random_state=42)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
 
-    # Model training
-    from sklearn.model_selection import train_test_split
-    from sklearn.linear_model import LinearRegression
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.metrics import r2_score, mean_absolute_error
+        # 📊 Stap 5: Evaluatie
+        r2 = r2_score(y_test, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
 
-    X = ml_data[features].fillna(ml_data[features].mean())
-    y = ml_data['rentals']
+        st.subheader("📈 Model Prestaties")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("📊 R² Score", f"{r2:.2f}")
+        m2.metric("📉 MAE", f"{mae:,.0f}")
+        m3.metric("📅 Datapunten", f"{overlap_days}")
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # 📈 Visualisatie: Werkelijk vs Voorspeld
+        import plotly.graph_objects as go
+        fig_pred = go.Figure()
+        fig_pred.add_trace(go.Scatter(
+            x=y_test, y=y_pred,
+            mode="markers",
+            name="Voorspellingen",
+            marker=dict(color="#FFD700", size=10),
+            hovertemplate="Werkelijk: %{x:,.0f}<br>Voorspeld: %{y:,.0f}<extra></extra>"
+        ))
+        fig_pred.add_trace(go.Scatter(
+            x=[y_test.min(), y_test.max()],
+            y=[y_test.min(), y_test.max()],
+            mode="lines",
+            name="Perfecte lijn",
+            line=dict(color="green", dash="dash")
+        ))
+        fig_pred.update_layout(
+            title="📊 Voorspelde vs Werkelijke Verhuringen",
+            xaxis_title="Werkelijk",
+            yaxis_title="Voorspeld",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white"),
+            height=500
+        )
+        st.plotly_chart(fig_pred, use_container_width=True)
 
-    if model_type == "Linear Regression":
-        model = LinearRegression()
-    else:
-        model = RandomForestRegressor(n_estimators=100, random_state=42)
+        # 🔮 Interactieve voorspelling
+        st.subheader("🔍 Interactieve voorspelling")
+        input_data = []
+        col_left, col_right = st.columns(2)
+        for i, feature in enumerate(selected_features):
+            col = col_left if i % 2 == 0 else col_right
+            with col:
+                min_val = float(X[feature].min())
+                max_val = float(X[feature].max())
+                mean_val = float(X[feature].mean())
+                val = st.slider(
+                    f"{feature}:", min_val, max_val, mean_val,
+                    step=(max_val - min_val) / 100
+                )
+                input_data.append(val)
 
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
+        if st.button("🔮 Voorspel"):
+            pred_input = np.array([input_data])
+            predicted_value = model.predict(pred_input)[0]
+            st.success(f"📈 Voorspelde verhuringen: **{predicted_value:,.0f}**")
 
-    # Resultaten
-    st.subheader("📊 Model Prestaties")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("R² Score", f"{r2_score(y_test, y_pred):.2f}")
-    c2.metric("MAE", f"{mean_absolute_error(y_test, y_pred):,.0f}")
-    c3.metric("Datapunten", f"{len(ml_data)} dagen")
-
-    # Plot voorspelling vs echt
-    import plotly.graph_objects as go
-    fig_pred = go.Figure()
-    fig_pred.add_trace(go.Scatter(x=y_test, y=y_pred, mode='markers',
-                                  name='Voorspellingen', marker=dict(color='orange')))
-    fig_pred.add_trace(go.Scatter(x=[y.min(), y.max()], y=[y.min(), y.max()],
-                                  mode='lines', name='Perfecte lijn', line=dict(dash='dash', color='green')))
-    fig_pred.update_layout(title="Voorspelde vs Werkelijke Verhuringen",
-                           xaxis_title="Werkelijke", yaxis_title="Voorspeld",
-                           height=500)
-    st.plotly_chart(fig_pred, use_container_width=True)
-
-    # Interactieve voorspelling
-    st.subheader("🎛️ Handmatige Voorspelling")
-    pred_input = []
-    col_a, col_b = st.columns(2)
-    for i, feature in enumerate(features):
-        col = col_a if i % 2 == 0 else col_b
-        with col:
-            min_v = float(X[feature].min())
-            max_v = float(X[feature].max())
-            mean_v = float(X[feature].mean())
-            value = st.slider(f"{feature}", min_v, max_v, mean_v)
-            pred_input.append(value)
-
-    if st.button("📈 Voorspel verhuringen"):
-        prediction = model.predict([pred_input])[0]
-        st.success(f"🚲 Voorspelde verhuringen: **{prediction:,.0f}**")
+    except Exception as e:
+        st.error(f"❌ Fout bij modeltraining: {e}")
