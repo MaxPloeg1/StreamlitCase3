@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
+from scipy.stats import linregress
 
 # ----------------------------------------------------------
 # PAGINA-INSTELLINGEN
@@ -102,43 +103,30 @@ with tab1:
     # Samenvoegen met weerdata
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    st.header("📈 Simpele Weerplots")
-
-    weather = pd.read_csv("weather_london.csv", index_col=0)
-
-    weather.index = pd.to_datetime(weather.index)
-
-    st.header("🌡️ Temperatuur vs Windsnelheid")
-
-    st.header("🌡️ Temperatuur vs Windsnelheid")
-
-    # Laad de data en converteer de index naar een kolom
+    st.header("📊 Correlatie tussen Windsnelheid en Temperatuur")
+        # Laad en verwerk de data
     weather = pd.read_csv("weather_london.csv")
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"])
 
-    # Slider voor datumbereik
-    min_date = weather["date"].min()
-    max_date = weather["date"].max()
-    date_range = st.slider(
-        "Selecteer datumbereik",
-        min_value=min_date,
-        max_value=max_date,
-        value=(min_date, max_date),
-        format="YYYY-MM-DD"
-    )
+    # Verwijder rijen met missende waarden
+    df_corr = weather.dropna(subset=["tavg", "wspd"])
 
-    # Filter de data
-    filtered = weather[(weather["date"] >= date_range[0]) & (weather["date"] <= date_range[1])]
+    # Bereken regressielijn
+    slope, intercept, r_value, p_value, std_err = linregress(df_corr["tavg"], df_corr["wspd"])
+    line = slope * df_corr["tavg"] + intercept
 
-    # Plot temperatuur vs windsnelheid
+    # Plot
     fig, ax = plt.subplots()
-    ax.scatter(filtered["tavg"], filtered["wspd"], color="teal", alpha=0.7)
+    ax.scatter(df_corr["tavg"], df_corr["wspd"], color="teal", alpha=0.6, label="Waarnemingen")
+    ax.plot(df_corr["tavg"], line, color="orange", label=f"Regressielijn (r={r_value:.2f})")
     ax.set_xlabel("Gemiddelde temperatuur (°C)")
     ax.set_ylabel("Windsnelheid (m/s)")
-    ax.set_title("Temperatuur vs Windsnelheid")
+    ax.set_title("Correlatie tussen Windsnelheid en Temperatuur")
+    ax.legend()
 
     st.pyplot(fig)
+    st.write(f"Correlatiecoëfficiënt (r): **{r_value:.2f}**")
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------

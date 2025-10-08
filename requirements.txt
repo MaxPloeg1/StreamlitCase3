@@ -11,3 +11,4 @@ seaborn
 folium
 streamlit-folium
 statsmodels
+scipy
