@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
+import matplotlib.pyplot as plt
 
 # ----------------------------------------------------------
 # PAGINA-INSTELLINGEN
@@ -81,6 +82,20 @@ with tab1:
     with c3:
         st.subheader("🌦️ weather_london.csv")
         st.dataframe(weather.head(), use_container_width=True)
+
+            # Aantal ritten per dag
+    rentals['date'] = rentals['Start Date'].dt.date
+    bike_counts = rentals.groupby('date').size().reset_index(name='rentals')
+    bike_counts['date'] = pd.to_datetime(bike_counts['date'])
+
+    # Plot
+    st.subheader("📈 Aantal fietsverhuringen per dag")
+    fig, ax = plt.subplots()
+    ax.plot(bike_counts['date'], bike_counts['rentals'], color='tab:blue')
+    ax.set_xlabel("Datum")
+    ax.set_ylabel("Aantal verhuringen")
+    ax.set_title("Dagelijkse fietsverhuringen in Londen")
+    st.pyplot(fig)
 
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
