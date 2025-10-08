@@ -203,47 +203,31 @@ with tab3:
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
 with tab4:
-    st.header("Voorspellingen - Fietsverhuringen")
+    st.header("🔮 Voorspellingen - Fietsverhuringen")
 
     try:
         # ---------------------------
-        # 🗓️ DATUMFIX — Consistente datums
+        # 📅 Datumfix
         # ---------------------------
-        rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], errors='coerce')
-        rentals['date'] = rentals['Start Date'].dt.normalize()  # normaliseer: tijd → 00:00:00
+        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
+        rentals["date"] = rentals["Start Date"].dt.normalize()
+        weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce").dt.normalize()
 
-        # bereken aantal verhuringen per dag
-        rentals_per_day = (
-            rentals.groupby('date')
-            .size()
-            .reset_index(name='rentals')
-        )
+        # Dagelijkse verhuur
+        rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
 
-        # Weather data datum fix
-        if 'Unnamed: 0' in weather.columns:
-            weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce').dt.normalize()
-        elif 'date' in weather.columns:
-            weather['date'] = pd.to_datetime(weather['date'], errors='coerce').dt.normalize()
-        else:
-            st.error("❌ Geen geldige datumkolom gevonden in weather_london.csv.")
+        # Merge
+        ml_data = pd.merge(weather, rentals_per_day, on="date", how="inner")
+
+        if len(ml_data) < 5:
+            st.error(f"❌ Niet genoeg overlappende data voor training ({len(ml_data)} dagen).")
+            st.dataframe(ml_data[["date", "tavg", "rentals"]])
             st.stop()
 
-        # ---------------------------
-        # 🔁 Merge alleen overlappende datums (ECHTE DATA)
-        # ---------------------------
-        ml_data = pd.merge(weather, rentals_per_day, on='date', how='inner')
-
-        # Check op overlap
-        overlap_days = len(ml_data)
-        if overlap_days < 10:
-            st.error(f"❌ Niet genoeg overlappende data voor training ({overlap_days} dagen gevonden, minimaal 10 vereist).")
-            st.dataframe(ml_data[['date', 'tavg', 'rentals']].head(10))
-            st.stop()
-
-        st.success(f"✅ Modeltraining op {overlap_days} dagen met echte data")
+        st.success(f"✅ {len(ml_data)} overlappende dagen gevonden.")
 
         # ---------------------------
-        # 📊 Modelconfiguratie
+        # 🧠 Modelconfiguratie
         # ---------------------------
         st.subheader("Model Configuratie")
 
@@ -251,12 +235,12 @@ with tab4:
         with col1:
             features = st.multiselect(
                 "Selecteer features voor voorspelling:",
-                ["tavg", "tmin", "tmax", "prcp", "wspd", "pres"],
+                ["tavg", "tmin", "tmax", "prcp", "wdir", "wspd", "wpgt", "pres"],
                 default=["tavg", "prcp"]
             )
         with col2:
             model_type = st.selectbox(
-                "Model type:",
+                "Modeltype:",
                 ["Linear Regression", "Random Forest"]
             )
 
@@ -264,22 +248,18 @@ with tab4:
             st.warning("⚠️ Selecteer minimaal één feature.")
             st.stop()
 
-        # ---------------------------
-        # 🧠 Modelvoorbereiding
-        # ---------------------------
         from sklearn.model_selection import train_test_split
         from sklearn.metrics import r2_score, mean_absolute_error
 
+        # ---------------------------
+        # 📊 Voorbereiding
+        # ---------------------------
         X = ml_data[features].fillna(ml_data[features].mean())
-        y = ml_data['rentals']
-
-        # Train/test split
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
+        y = ml_data["rentals"]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         # ---------------------------
-        # 🤖 Modelkeuze
+        # 🤖 Model
         # ---------------------------
         if model_type == "Linear Regression":
             from sklearn.linear_model import LinearRegression
@@ -288,81 +268,68 @@ with tab4:
             from sklearn.ensemble import RandomForestRegressor
             model = RandomForestRegressor(n_estimators=100, random_state=42)
 
-        # Train model
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 
-        # ---------------------------
-        # 📈 Model prestaties
-        # ---------------------------
         r2 = r2_score(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
 
-        st.subheader("Model Prestaties")
+        st.subheader("📈 Model Prestaties")
         c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("R² Score", f"{r2:.3f}")
-        with c2:
-            st.metric("Mean Absolute Error", f"{mae:,.0f}")
-        with c3:
-            st.metric("Datapunten", f"{overlap_days} dagen")
+        c1.metric("R² Score", f"{r2:.3f}")
+        c2.metric("Mean Absolute Error", f"{mae:.0f}")
+        c3.metric("Aantal dagen", f"{len(ml_data)}")
 
         # ---------------------------
-        # 📊 Voorspelling vs Werkelijk
+        # 📉 Voorspelling vs Werkelijk
         # ---------------------------
-        import plotly.graph_objects as go
-
         fig_pred = go.Figure()
         fig_pred.add_trace(go.Scatter(
             x=y_test,
             y=y_pred,
-            mode='markers',
-            name='Voorspellingen',
-            marker=dict(color='#FFD700', size=8),
-            hovertemplate='Werkelijk: %{x:,.0f}<br>Voorspeld: %{y:,.0f}<extra></extra>'
+            mode="markers",
+            name="Voorspellingen",
+            marker=dict(color="gold", size=8)
         ))
         fig_pred.add_trace(go.Scatter(
-            x=[y_test.min(), y_test.max()],
-            y=[y_test.min(), y_test.max()],
-            mode='lines',
-            name='Perfecte voorspelling',
-            line=dict(color='red', dash='dash')
+            x=[y.min(), y.max()],
+            y=[y.min(), y.max()],
+            mode="lines",
+            name="Perfecte voorspelling",
+            line=dict(color="red", dash="dash")
         ))
         fig_pred.update_layout(
-            title="Voorspelling vs Werkelijke Waarden (Testset)",
-            xaxis_title="Werkelijke Verhuringen",
-            yaxis_title="Voorspelde Verhuringen",
-            paper_bgcolor="rgba(0,0,0,0)",
+            title="Voorspelling vs Werkelijke Waarden",
+            xaxis_title="Werkelijke verhuringen",
+            yaxis_title="Voorspelde verhuringen",
+            height=500,
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"),
-            height=500
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white")
         )
         st.plotly_chart(fig_pred, use_container_width=True)
 
         # ---------------------------
         # 🔮 Interactieve voorspelling
         # ---------------------------
-        st.subheader("Interactieve Voorspelling")
+        st.subheader("🎛️ Interactieve voorspelling")
         pred_inputs = {}
-        col_a, col_b = st.columns(2)
+        colA, colB = st.columns(2)
         for i, feature in enumerate(features):
-            col = col_a if i % 2 == 0 else col_b
+            col = colA if i % 2 == 0 else colB
             with col:
                 min_val = float(X[feature].min())
                 max_val = float(X[feature].max())
                 mean_val = float(X[feature].mean())
                 pred_inputs[feature] = st.slider(
-                    f"{feature}:",
-                    min_value=min_val,
-                    max_value=max_val,
-                    value=mean_val,
-                    step=(max_val - min_val) / 100
+                    f"{feature}:", min_value=min_val, max_value=max_val,
+                    value=mean_val, step=(max_val - min_val) / 100
                 )
 
         if st.button("Voorspel Fietsverhuringen"):
-            pred_X = np.array([[pred_inputs[f] for f in features]])
-            prediction = model.predict(pred_X)[0]
+            input_array = np.array([[pred_inputs[f] for f in features]])
+            prediction = model.predict(input_array)[0]
             st.success(f"📈 Voorspelde verhuringen: **{prediction:,.0f}**")
 
     except Exception as e:
-        st.error(f"❌ Fout bij het verwerken van het model: {e}")
+        st.error(f"❌ Fout in modelcode: {e}")
