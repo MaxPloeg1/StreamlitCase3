@@ -340,36 +340,7 @@ with tab3:
             line=dict(color='#FFD700', width=3),
             hovertemplate='<b>%{x}</b><br>Verhuringen: %{y:,}<extra></extra>'
         ))
-        
-        # Add weather overlay
-        weather_overlay = st.sidebar.selectbox(
-            "Weather overlay:",
-            ["Geen", "tavg", "tmin", "tmax", "prcp"],
-            key="weather_overlay"
-        )
-        
-        if weather_overlay != "Geen":
-            fig_line.add_trace(go.Scatter(
-                x=filtered_data['date'],
-                y=filtered_data[weather_overlay],
-                mode='lines',
-                name=f'Weather: {weather_overlay}',
-                yaxis='y2',
-                line=dict(color='red', width=2, dash='dash'),
-                hovertemplate=f'<b>%{{x}}</b><br>{weather_overlay}: %{{y}}<extra></extra>'
-            ))
-            
-            # Update layout for dual y-axis
-            fig_line.update_layout(
-                yaxis2=dict(
-                    title=f"Weather: {weather_overlay}",
-                    overlaying='y',
-                    side='right',
-                    titlefont=dict(color='red'),
-                    tickfont=dict(color='red')
-                )
-            )
-        
+    
         fig_line.update_layout(
             title="Fietsverhuringen over Tijd (Interactief)",
             xaxis_title="Datum",
