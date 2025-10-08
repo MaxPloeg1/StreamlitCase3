@@ -268,157 +268,104 @@ with tab2:
 
 # ----------------------------------------------------------
 
-# TAB 3 — TIJDREEKS & TRENDS + METROKAART
-# ----------------------------------------------------------
-# ----------------------------------------------------------
-# TAB 3 — TIJDREEKS & TRENDS + METROKAART
-# ----------------------------------------------------------
-with tab3:
-    st.header("📈 Tijdreeks Analyse & Metrokaart")
+import pandas as pd
+import plotly.graph_objects as go
+from sklearn.linear_model import LinearRegression
+import numpy as np
+import streamlit as st
 
-    # Alleen metrokaart optie
-    st.subheader("🚇 Metrokaart van Londen")
+# Data inladen
+metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
 
-    try:
-        # Laad metrodata
-        stations_df = pd.read_csv("London stations.csv")
-        lines_df = pd.read_csv("London tube lines.csv")
+# Streamlit instellingen
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #FFC72C; /* NS-geel */
+    }
+    html, body, [class*="st-"] {
+        color: #003082 !important;  /* NS-blauw */
+        font-family: Arial, sans-serif;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-        coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
+# Titel en uitleg
+st.markdown("## 🚇 Metro voorspelling:")
+st.markdown("""
+Nu we weten hoeveel fietsen er worden verhuurd per dag, en waar deze voornamelijk staan,  
+kunnen we proberen een voorspelling te maken. Een voorspelling over het aantal reizigers  
+per metro kan ons meer inzicht geven in waar wij onze fietsen moeten gaan plaatsen.
 
-        tube_colors = {
-            "Bakerloo": "saddlebrown",
-            "Central": "red",
-            "Circle": "gold",
-            "District": "green",
-            "Hammersmith & City": "pink",
-            "Jubilee": "grey",
-            "Metropolitan": "purple",
-            "Northern": "black",
-            "Piccadilly": "blue",
-            "Victoria": "deepskyblue",
-            "Waterloo & City": "turquoise",
-            "DLR": "lime",
-            "Overground": "orange",
-            "Elizabeth": "mediumslateblue"
-        }
+**Let op**: de data is zeer aangetast door de pandemie in 2021!
+""")
 
-        show_stations = st.checkbox("Toon metrostations", value=True)
-        show_lines = st.checkbox("Toon metrolijnen", value=True)
+# Model trainen
+X = metropredict[['Jaar']]
+y = metropredict['Passagiers']
+model = LinearRegression()
+model.fit(X, y)
 
-        map_center = [51.5074, -0.1278]
-        metro_map = folium.Map(location=map_center, zoom_start=11, tiles="cartodbpositron")
+# Unieke stations
+stations = metropredict['name'].unique()
 
-        if show_lines:
-            for _, row in lines_df.iterrows():
-                from_station = row["From Station"]
-                to_station = row["To Station"]
-                line = row["Tube Line"]
-                if from_station in coord_dict and to_station in coord_dict:
-                    coords = [
-                        (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
-                        (coord_dict[to_station]["Latitude"], coord_dict[to_station]["Longitude"])
-                    ]
-                    folium.PolyLine(
-                        coords,
-                        color=tube_colors.get(line, "blue"),
-                        weight=3,
-                        tooltip=line
-                    ).add_to(metro_map)
+# Kleurenschema
+colors = [
+    "#00BFC4", "#F8766D", "#7CAE00", "#C77CFF", "#00BA38",
+    "#FF61C3", "#619CFF", "#F564E3", "#B79F00", "#E76BF3"
+]
 
-        if show_stations:
-            for station, loc in coord_dict.items():
-                folium.CircleMarker(
-                    location=[loc["Latitude"], loc["Longitude"]],
-                    radius=4,
-                    color="green",
-                    fill=True,
-                    popup=station
-                ).add_to(metro_map)
+# Figuur opbouwen
+fig = go.Figure()
 
-        st_folium(metro_map, width=1000, height=600)
+for i, station in enumerate(stations):
+    station_data = metropredict[metropredict['name'] == station]
+    X_train = station_data['Jaar'].values.reshape(-1, 1)
+    y_train = station_data['Passagiers'].values
+    
+    model.fit(X_train, y_train)
+    X_future = np.arange(2022, 2027).reshape(-1, 1)
+    y_pred = model.predict(X_future)
 
-    except Exception as e:
-        st.error(f"Fout bij laden metrokaart: {e}")
+    color = colors[i % len(colors)]
 
-    # ----------------------------------------------------------
-    # 🔮 METRO VOORSPELLINGSGRAFIEK TOEGEVOEGD
-    # ----------------------------------------------------------
+    # Historische data
+    fig.add_trace(go.Scatter(
+        x=station_data['Jaar'],
+        y=station_data['Passagiers'],
+        mode='lines+markers',
+        name=f"{station} - Historisch",
+        line=dict(color=color)
+    ))
 
-    st.markdown("---")
-    st.markdown("## 📊 Metro voorspelling")
+    # Voorspelling
+    fig.add_trace(go.Scatter(
+        x=X_future.flatten(),
+        y=y_pred,
+        mode='lines',
+        name=f"{station} - Voorspelling",
+        line=dict(color=color, dash='dash')
+    ))
 
-    st.markdown("""
-    Nu we weten hoeveel fietsen er worden verhuurd per dag, en waar deze voornamelijk staan,  
-    kunnen we proberen een voorspelling te maken. Een voorspelling over het aantal reizigers  
-    per metro kan ons meer inzicht geven in waar wij onze fietsen moeten gaan plaatsen.
-
-    **Let op**: de data is sterk beïnvloed door de pandemie in 2021!
-    """)
-
-    import plotly.graph_objects as go
-    from sklearn.linear_model import LinearRegression
-    import numpy as np
-
-    # Metrovoorspellingsdata
-    metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
-
-    # Model en stations
-    model = LinearRegression()
-    stations = metropredict['name'].unique()
-    colors = [
-        "#00BFC4", "#F8766D", "#7CAE00", "#C77CFF", "#00BA38",
-        "#FF61C3", "#619CFF", "#F564E3", "#B79F00", "#E76BF3"
-    ]
-
-    fig = go.Figure()
-
-    # Lijnen per station
-    for i, station in enumerate(stations):
-        data = metropredict[metropredict['name'] == station]
-        X = data['Jaar'].values.reshape(-1, 1)
-        y = data['Passagiers'].values
-
-        model.fit(X, y)
-        X_future = np.arange(2022, 2027).reshape(-1, 1)
-        y_pred = model.predict(X_future)
-
-        color = colors[i % len(colors)]
-
-        # Historische data
-        fig.add_trace(go.Scatter(
-            x=data['Jaar'],
-            y=data['Passagiers'],
-            mode='lines+markers',
-            name=f"{station} - Historisch",
-            line=dict(color=color)
-        ))
-
-        # Voorspelling
-        fig.add_trace(go.Scatter(
-            x=X_future.flatten(),
-            y=y_pred,
-            mode='lines',
-            name=f"{station} - Voorspelling",
-            line=dict(color=color, dash='dash')
-        ))
-
-    # Layout instellingen
-    fig.update_layout(
-        title="Voorspelling passagiersaantallen per station",
-        xaxis_title="Jaar",
-        yaxis_title="Aantal passagiers",
-        template="plotly_white",
-        plot_bgcolor='rgba(255, 255, 255, 0.3)',
-        paper_bgcolor='rgba(255, 255, 255, 0.2)',
-        font=dict(color='#003082'),
-        legend=dict(
-            orientation="v",
-            bgcolor='rgba(255,255,255,0.7)'
-        )
+# Layout
+fig.update_layout(
+    title="Voorspelling passagiersaantallen per station",
+    xaxis_title="Jaar",
+    yaxis_title="Aantal passagiers",
+    template="plotly_white",
+    plot_bgcolor='rgba(255, 255, 255, 0.3)',
+    paper_bgcolor='rgba(255, 255, 255, 0.2)',
+    font=dict(color='#003082'),
+    legend=dict(
+        orientation="v",
+        bgcolor='rgba(255,255,255,0.6)'
     )
+)
 
-    st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig)
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
@@ -629,6 +576,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
