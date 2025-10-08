@@ -62,11 +62,10 @@ bike_col = "nbBikes"
 # ----------------------------------------------------------
 # TABSTRUCTUUR
 # ----------------------------------------------------------
-tab1, tab2, tab3, tab4, = st.tabs([
+tab1, tab2, tab3, = st.tabs([
     "📊 Data Exploration", 
     "🚲 Fietsstations & Kaart", 
     "📈 Tijdreeks & Trends", 
-    "🔮 Voorspellingen"
 ])
 
 # ----------------------------------------------------------
@@ -128,31 +127,30 @@ with tab1:
     st.pyplot(fig, width='content')
     st.write(f"Correlatiecoëfficiënt (r): **{r_value:.2f}**")
 
-
-    st.header("📊 Correlatie tussen Neerslag en Gemiddelde Temperatuur")
+    st.header("📊 Correlatie tussen Neerslag en Maximale Temperatuur")
 
     weather = pd.read_csv("weather_london.csv")
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"])
 
     # Verwijder rijen met missende waarden
-    df_corr3 = weather.dropna(subset=["prcp", "tavg"])
+    df_corr2 = weather.dropna(subset=["prcp", "tmax"])
 
     # Bereken regressielijn
-    slope3, intercept3, r_value3, p_value3, std_err3 = linregress(df_corr3["tavg"], df_corr3["prcp"])
-    line3 = slope3 * df_corr3["tavg"] + intercept3
+    slope2, intercept2, r_value2, p_value2, std_err2 = linregress(df_corr2["tmax"], df_corr2["prcp"])
+    line2 = slope2 * df_corr2["tmax"] + intercept2
 
     # Plot
-    fig3, ax3 = plt.subplots(figsize=(4, 2.5))
-    ax3.scatter(df_corr3["tavg"], df_corr3["prcp"], color="navy", alpha=0.6, label="Waarnemingen")
-    ax3.plot(df_corr3["tavg"], line3, color="red", label=f"Regressielijn (r={r_value3:.2f})")
-    ax3.set_xlabel("Gemiddelde temperatuur (°C)")
-    ax3.set_ylabel("Neerslag (mm)")
-    ax3.set_title("Correlatie tussen Neerslag en Gemiddelde Temperatuur")
-    ax3.legend()
+    fig2, ax2 = plt.subplots(figsize=(5, 3))
+    ax2.scatter(df_corr2["tmax"], df_corr2["prcp"], color="navy", alpha=0.6, label="Waarnemingen")
+    ax2.plot(df_corr2["tmax"], line2, color="red", label=f"Regressielijn (r={r_value2:.2f})")
+    ax2.set_xlabel("Maximale temperatuur (°C)")
+    ax2.set_ylabel("Neerslag (mm)")
+    ax2.set_title("Correlatie tussen Neerslag en Maximale Temperatuur")
+    ax2.legend()
 
-    st.pyplot(fig3, width='content')
-    st.write(f"Correlatiecoëfficiënt (r): **{r_value3:.2f}**")
+    st.pyplot(fig2, fig, width='content')
+    st.write(f"Correlatiecoëfficiënt (r): **{r_value2:.2f}**")
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
@@ -401,150 +399,3 @@ with tab3:
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
-
-with tab4:
-    st.header("🔮 Voorspellingen - Fietsverhuringen")
-
-    try:
-        # 🧹 Stap 1: Data normaliseren & mergen
-        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
-        rentals["date"] = rentals["Start Date"].dt.normalize()
-        rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
-
-        if "Unnamed: 0" in weather.columns:
-            weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
-        elif "date" in weather.columns:
-            weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
-        else:
-            st.error("❌ Kon geen datumkolom vinden in de weerdata.")
-            st.stop()
-
-        full_data = pd.merge(weather, rentals_per_day, on="date", how="inner")
-        full_data = full_data.dropna(subset=["rentals"])
-
-        # 🎯 Stap 2: Feature selectie
-        all_features = ["tavg", "tmin", "tmax", "prcp", "snow", "wdir", "wspd", "pres"]
-        used_features = [f for f in all_features if f in full_data.columns]
-        full_data = full_data.dropna(subset=used_features)
-
-        overlap_days = len(full_data)
-        if overlap_days < 7:
-            st.error(f"❌ Niet genoeg overlappende data voor training ({overlap_days} dagen).")
-            st.dataframe(full_data[["date", "tavg", "rentals"]])
-            st.stop()
-
-        st.success(f"✅ {overlap_days} overlappende dagen gevonden voor modeltraining.")
-
-        # ⚙️ Stap 3: Configuratie
-        st.subheader("⚙️ Model Configuratie")
-        c1, c2 = st.columns(2)
-        with c1:
-            selected_features = st.multiselect(
-                "Selecteer features voor voorspelling:",
-                options=used_features,
-                default=["tavg", "prcp"] if "prcp" in used_features else used_features[:2]
-            )
-        with c2:
-            st.markdown("Kies modeltype (Random Forest aanbevolen):")
-            model_type = st.selectbox("Model", ["Random Forest"], index=0)
-
-        if not selected_features:
-            st.warning("⚠️ Selecteer minimaal één feature.")
-            st.stop()
-
-        # 🧠 Stap 4: Train/Test Split
-        from sklearn.model_selection import train_test_split
-        from sklearn.ensemble import RandomForestRegressor
-        from sklearn.metrics import r2_score, mean_absolute_error
-
-        X = full_data[selected_features]
-        y = full_data["rentals"]
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.25, random_state=42
-        )
-
-        model = RandomForestRegressor(n_estimators=150, random_state=42)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-
-        # 📊 Stap 5: Evaluatie
-        r2 = r2_score(y_test, y_pred)
-        mae = mean_absolute_error(y_test, y_pred)
-
-        st.subheader("📈 Model Prestaties")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("📊 R² Score", f"{r2:.2f}")
-        m2.metric("📉 MAE", f"{mae:,.0f}")
-        m3.metric("📅 Datapunten", f"{overlap_days}")
-
-        # 📈 Visualisatie: Werkelijk vs Voorspeld
-        import plotly.graph_objects as go
-        fig_pred = go.Figure()
-        fig_pred.add_trace(go.Scatter(
-            x=y_test, y=y_pred,
-            mode="markers",
-            name="Voorspellingen",
-            marker=dict(color="#FFD700", size=10),
-            hovertemplate="Werkelijk: %{x:,.0f}<br>Voorspeld: %{y:,.0f}<extra></extra>"
-        ))
-        fig_pred.add_trace(go.Scatter(
-            x=[y_test.min(), y_test.max()],
-            y=[y_test.min(), y_test.max()],
-            mode="lines",
-            name="Perfecte lijn",
-            line=dict(color="green", dash="dash")
-        ))
-        fig_pred.update_layout(
-            title="📊 Voorspelde vs Werkelijke Verhuringen",
-            xaxis_title="Werkelijk",
-            yaxis_title="Voorspeld",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"),
-            height=500
-        )
-        st.plotly_chart(fig_pred, use_container_width=True)
-
-        # 🔮 Interactieve voorspelling
-        st.subheader("🔍 Interactieve voorspelling")
-        input_data = []
-        col_left, col_right = st.columns(2)
-        for i, feature in enumerate(selected_features):
-            col = col_left if i % 2 == 0 else col_right
-            with col:
-                min_val = float(X[feature].min())
-                max_val = float(X[feature].max())
-                mean_val = float(X[feature].mean())
-                val = st.slider(
-                    f"{feature}:", min_val, max_val, mean_val,
-                    step=(max_val - min_val) / 100
-                )
-                input_data.append(val)
-
-        if st.button("🔮 Voorspel"):
-            pred_input = np.array([input_data])
-            predicted_value = model.predict(pred_input)[0]
-            st.success(f"📈 Voorspelde verhuringen: **{predicted_value:,.0f}**")
-
-    except Exception as e:
-        st.error(f"❌ Fout bij modeltraining: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
