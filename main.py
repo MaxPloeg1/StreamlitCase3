@@ -60,8 +60,8 @@ bike_col = "nbBikes"
 # ----------------------------------------------------------
 # TABSTRUCTUUR
 # ----------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Data Exploration", "🚲 Fietsstations & Kaart", "📈 Tijdreeks & Trends", "🔮 Voorspellingen"
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Data Exploration", "🚲 Fietsstations & Kaart", "📈 Tijdreeks & Trends", "🔮 Voorspellingen", "🔥 Drukste Routes"
 ])
 
 # ----------------------------------------------------------
@@ -443,4 +443,90 @@ with tab4:
 
     except Exception as e:
         st.error(f"❌ Fout bij modeltraining: {e}")
+
+# ----------------------------------------------------------
+# TAB 5 — DRUKSTE ROUTES & GEBIEDEN
+# ----------------------------------------------------------
+with tab5:
+    st.header("🔥 Drukste Routes & Gebieden")
+    
+    # Bereken de drukste routes
+    route_counts = rentals.groupby(["StartStation Id", "EndStation Id", "StartStation Name", "EndStation Name"]).size().reset_index(name="trips")
+    top_routes = route_counts.nlargest(10, "trips")
+
+    # Voeg coördinaten toe aan stations
+    stations_dict = stations.set_index("id")[["lat", "lon", "name"]].to_dict("index")
+    
+    # Maak een basis kaart
+    center_lat = stations["lat"].mean()
+    center_lon = stations["lon"].mean()
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=12)
+
+    # Voeg de drukste stations toe (grote cirkels)
+    station_usage = pd.concat([
+        rentals["StartStation Id"].value_counts(),
+        rentals["EndStation Id"].value_counts()
+    ]).groupby(level=0).sum().sort_values(ascending=False)
+
+    for station_id, count in station_usage.head(15).items():
+        try:
+            station = stations_dict[int(station_id)]
+            folium.CircleMarker(
+                location=[station["lat"], station["lon"]],
+                radius=min(20, count/1000),  # Schaal de grootte
+                popup=f"{station['name']}<br>Totaal gebruik: {count} keer",
+                color="red",
+                fill=True,
+                fill_color="red"
+            ).add_to(m)
+        except:
+            continue
+
+    # Teken lijnen voor de drukste routes
+    for _, route in top_routes.iterrows():
+        try:
+            start_station = stations_dict[int(route["StartStation Id"])]
+            end_station = stations_dict[int(route["EndStation Id"])]
+            
+            # Teken een lijn tussen start en eind
+            folium.PolyLine(
+                locations=[
+                    [start_station["lat"], start_station["lon"]],
+                    [end_station["lat"], end_station["lon"]]
+                ],
+                weight=2 + (route["trips"] / top_routes["trips"].max() * 8),  # Lijndikte op basis van gebruik
+                color="blue",
+                popup=f"{route['StartStation Name']} → {route['EndStation Name']}<br>{route['trips']} ritten"
+            ).add_to(m)
+        except:
+            continue
+
+    # Toon de kaart
+    st_folium(m, width=1000, height=600)
+
+    # Toon tabel met top routes
+    st.subheader("Top 10 Drukste Routes")
+    formatted_routes = top_routes[["StartStation Name", "EndStation Name", "trips"]].copy()
+    formatted_routes.columns = ["Van Station", "Naar Station", "Aantal Ritten"]
+    st.dataframe(formatted_routes, use_container_width=True)
+
+    # Toon statistieken
+    st.subheader("📊 Station Statistieken")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("##### 🔝 Top 5 Vertrekstations")
+        top_starts = rentals["StartStation Name"].value_counts().head()
+        st.dataframe(pd.DataFrame({
+            "Station": top_starts.index,
+            "Vertrekkende Ritten": top_starts.values
+        }))
+    
+    with col2:
+        st.markdown("##### 🎯 Top 5 Aankomststations")
+        top_ends = rentals["EndStation Name"].value_counts().head()
+        st.dataframe(pd.DataFrame({
+            "Station": top_ends.index,
+            "Aankomende Ritten": top_ends.values
+        }))
 
