@@ -60,12 +60,11 @@ bike_col = "nbBikes"
 # ----------------------------------------------------------
 # TABSTRUCTUUR
 # ----------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, = st.tabs([
     "📊 Data Exploration", 
     "🚲 Fietsstations & Kaart", 
     "📈 Tijdreeks & Trends", 
-    "🔮 Voorspellingen", 
-    "🔥 Drukste Routes"
+    "🔮 Voorspellingen"
 ])
 
 # ----------------------------------------------------------
@@ -520,85 +519,6 @@ with tab4:
 
     except Exception as e:
         st.error(f"❌ Fout bij modeltraining: {e}")
-
-# ----------------------------------------------------------
-# TAB 5 — DRUKSTE ROUTES & GEBIEDEN
-# ----------------------------------------------------------
-with tab5:
-    st.header("🔥 Drukste Routes & Gebieden")
-    
-    try:
-        # Test if we can access the data
-        st.write("Analyzing routes...")
-        
-        # Bereken de drukste routes
-        route_counts = rentals.groupby(
-            ["StartStation Id", "EndStation Id", "StartStation Name", "EndStation Name"]
-        ).size().reset_index(name="trips")
-        
-        # Get top 10 routes
-        top_routes = route_counts.nlargest(10, "trips")
-        
-        # Show basic table first
-        st.subheader("Top 10 Drukste Routes")
-        st.dataframe(top_routes[["StartStation Name", "EndStation Name", "trips"]])
-        
-        # Create map
-        st.subheader("Kaart van Drukste Routes")
-        
-        # Get station coordinates
-        if "id" not in stations.columns:
-            stations["id"] = stations.index
-        stations_dict = stations.set_index("id")[["lat", "lon", "name"]].to_dict("index")
-        
-        # Create base map
-        center_lat = stations["lat"].mean()
-        center_lon = stations["lon"].mean()
-        m = folium.Map(location=[center_lat, center_lon], zoom_start=12)
-        
-        # Add busiest routes
-        for _, route in top_routes.iterrows():
-            try:
-                start_id = int(route["StartStation Id"])
-                end_id = int(route["EndStation Id"])
-                
-                if start_id in stations_dict and end_id in stations_dict:
-                    start = stations_dict[start_id]
-                    end = stations_dict[end_id]
-                    
-                    # Draw line between stations
-                    folium.PolyLine(
-                        locations=[
-                            [start["lat"], start["lon"]],
-                            [end["lat"], end["lon"]]
-                        ],
-                        color="blue",
-                        weight=3,
-                        popup=f"{route['StartStation Name']} → {route['EndStation Name']}: {route['trips']} trips"
-                    ).add_to(m)
-                    
-                    # Mark stations
-                    for station in [start, end]:
-                        folium.CircleMarker(
-                            location=[station["lat"], station["lon"]],
-                            radius=8,
-                            color="red",
-                            fill=True,
-                            popup=station["name"]
-                        ).add_to(m)
-            
-            except Exception as e:
-                st.error(f"Error plotting route: {e}")
-                continue
-        
-        # Display the map
-        st_folium(m, width=800, height=600)
-        
-    except Exception as e:
-        st.error(f"Error in tab 5: {e}")
-        st.write("Debug info:")
-        st.write("Rentals columns:", rentals.columns.tolist())
-        st.write("Stations columns:", stations.columns.tolist())
 
 
 
