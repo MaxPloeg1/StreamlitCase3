@@ -1,3 +1,4 @@
+# 🚆 NS: LondOnderweg! — Fixed Streamlit App
 # 🚆 NS: LondOnderweg! — Advanced Dashboard
 import streamlit as st
 import pandas as pd
@@ -14,118 +15,114 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score, mean_absolute_error
 
 # ----------------------------------------------------------
+# 🔧 PAGINA-INSTELLINGEN
 # PAGINA-INSTELLINGEN
 # ----------------------------------------------------------
 st.set_page_config(page_title="NS: LondOnderweg!", page_icon="🚆", layout="wide")
 
-st.markdown("""
-<style>
-body {background-color: #111;}
-.stApp {background-color: #111;}
-h1, h2, h3, h4 {color: #FFD700;}
-p, label, span, .stMetric-label, .stMetric-value {color: white !important;}
-</style>
+@@ -22,7 +28,7 @@
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------------
+# 📂 DATA INLADEN
 # DATA INLADEN
 # ----------------------------------------------------------
 @st.cache_data
 def load_data():
-    try:
-        stations = pd.read_csv("cycle_stations.csv")
-        rentals = pd.read_csv("bike_rentals.csv")
-        weather = pd.read_csv("weather_london.csv")
-        tube_stations = pd.read_csv('London stations.csv')
-        tube_lines = pd.read_csv("London tube lines.csv")
-        return stations, rentals, weather, tube_stations, tube_lines
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return None, None, None
-
-# Load data with error handling
-data_result = load_data()
+@@ -40,45 +46,40 @@ def load_data():
 if data_result[0] is not None:
-    stations, rentals, weather, tube_stations, tube_lines = data_result
+stations, rentals, weather = data_result
 else:
+    st.error("❌ Failed to load data. Please check that all CSV files are present.")
     st.error("Failed to load data. Please check that all CSV files are present.")
-    st.stop()
+st.stop()
 
 # ----------------------------------------------------------
+# 🧩 DATA VOORBEREIDING
 # DATA VOORBEREIDING
 # ----------------------------------------------------------
 # Hernoem kolom 'long' naar 'lon' voor Streamlit map compatibility
 if "long" in stations.columns:
-    stations = stations.rename(columns={"long": "lon"})
+stations = stations.rename(columns={"long": "lon"})
+    st.sidebar.success("✅ Renamed 'long' to 'lon'")
     st.sidebar.success("Renamed 'long' to 'lon'")
 
 # Controleer of vereiste kolommen bestaan
 required_cols = ["lat", "lon", "nbBikes", "name"]
 missing_cols = [col for col in required_cols if col not in stations.columns]
 if missing_cols:
+    st.sidebar.error(f"❌ Missing columns: {missing_cols}")
     st.sidebar.error(f"Missing columns: {missing_cols}")
-    st.error(f"Missing required columns in stations data: {missing_cols}")
-    st.stop()
+st.error(f"Missing required columns in stations data: {missing_cols}")
+st.stop()
 
 # Kolomnamen
 lat_col, lon_col = "lat", "lon"
 bike_col = "nbBikes"
 
+# Debug info in sidebar
+st.sidebar.header("📁 Data-info")
+st.sidebar.write("Kolommen in cycle_stations.csv:", list(stations.columns))
+st.sidebar.write("Kolommen in bike_rentals.csv:", list(rentals.columns))
+st.sidebar.write("Kolommen in weather_london.csv:", list(weather.columns))
 
 # ----------------------------------------------------------
+# 🔖 TABSTRUCTUUR
 # TABSTRUCTUUR
 # ----------------------------------------------------------
+tab1, tab2, tab3 = st.tabs(["📊 Data Exploration", "🚲 Fietsstations & Kaart", "🌦️ Weer & Trends"])
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Data Exploration", "🚲 Fietsstations & Kaart", "📈 Tijdreeks & Trends", "🔮 Voorspellingen"])
 
 # ----------------------------------------------------------
+# 📊 TAB 1 — DATA EXPLORATION
 # TAB 1 — DATA EXPLORATION
 # ----------------------------------------------------------
 with tab1:
+    st.header("📈 Data-overzicht")
     st.header("Data-overzicht")
-    st.markdown("Hieronder zie je voorbeelden van onze drie datasets:")
+st.markdown("Hieronder zie je voorbeelden van onze drie datasets:")
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.subheader("🚲 cycle_stations.csv")
-        st.dataframe(stations.head(), use_container_width=True)
-    with c2:
-        st.subheader("📅 bike_rentals.csv")
-        st.dataframe(rentals.head(), use_container_width=True)
-    with c3:
-        st.subheader("🌦️ weather_london.csv")
-        st.dataframe(weather.head(), use_container_width=True)
+c1, c2, c3 = st.columns(3)
+@@ -93,49 +94,156 @@ def load_data():
+st.dataframe(weather.head(), use_container_width=True)
 
 # ----------------------------------------------------------
-
+# 🚲 TAB 2 — KAART MET FIETSSTATIONS (Folium)
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
 with tab2:
-    st.header("🚴‍♀️ Interactieve Fietsstations & Metrokaart")
+    st.header("🗺️ Fietsverhuurstations in Londen")
+    st.header("Interactieve Fietsstations Kaart")
 
     # Sidebar controls voor kaart
     st.sidebar.subheader("🎛️ Kaart Instellingen")
-
-    # Kleurcode-opties
+    
+    # Kleurcode opties
     color_option = st.sidebar.selectbox(
         "Kleurcode gebaseerd op:",
         ["nbBikes", "nbEmptyDocks", "nbDocks", "Locatie (lat/lon)"]
     )
-
+    
     # Bike count filter
     min_bikes = st.sidebar.slider("Minimum aantal fietsen:", 0, int(stations['nbBikes'].max()), 0)
     max_bikes = st.sidebar.slider("Maximum aantal fietsen:", 0, int(stations['nbBikes'].max()), int(stations['nbBikes'].max()))
-
+    
     # Filter stations
     filtered_stations = stations[
-        (stations['nbBikes'] >= min_bikes) &
+        (stations['nbBikes'] >= min_bikes) & 
         (stations['nbBikes'] <= max_bikes)
     ]
 
-    # Controle of kolommen bestaan
-    if lat_col in stations.columns and lon_col in stations.columns:
+# Controle of kolommen bestaan
+if lat_col in stations.columns and lon_col in stations.columns:
+        st.success("✅ Kolommen gevonden: 'lat' en 'lon'")
         st.success(f"✅ {len(filtered_stations)} stations gevonden (gefilterd van {len(stations)})")
 
-        # Metrics
+        avg_bikes = round(stations[bike_col].mean(), 1)
+        total_bikes = int(stations[bike_col].sum())
+        st.metric(label="Gemiddeld aantal fietsen per station", value=avg_bikes)
+        st.metric(label="Totaal aantal fietsen", value=total_bikes)
+        # Metrics in columns
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Gemiddeld aantal fietsen", f"{filtered_stations[bike_col].mean():.1f}")
@@ -136,9 +133,10 @@ with tab2:
         with col4:
             st.metric("Max fietsen per station", f"{filtered_stations[bike_col].max()}")
 
+        # Folium kaart
+        m = folium.Map(location=[51.5074, -0.1278], zoom_start=11, tiles="CartoDB dark_matter")
         # Plotly interactieve kaart
-        import plotly.express as px
-        fig_map = px.scatter_mapbox(
+        fig_map = px.scatter_map(
             filtered_stations,
             lat="lat",
             lon="lon",
@@ -150,9 +148,9 @@ with tab2:
             size_max=15,
             zoom=11,
             height=600,
-            title=f"Fietsstations gekleurd op {color_option}"
+            title=f"Fietsstations gekleureerd op {color_option}"
         )
-
+        
         fig_map.update_layout(
             mapbox_style="open-street-map",
             mapbox=dict(center=dict(lat=51.5074, lon=-0.1278)),
@@ -161,107 +159,188 @@ with tab2:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)"
         )
-
+        
         st.plotly_chart(fig_map, use_container_width=True)
-    else:
-        st.error("❌ Kolommen 'lat' en 'lon' niet gevonden in cycle_stations.csv")
+        
+        # Folium backup kaart
+        st.write("")
+        st.write("")
+        st.subheader("Folium Kaart")
+        with st.expander("Toon Folium kaart"):
+            m = folium.Map(location=[51.5074, -0.1278], zoom_start=12, tiles="CartoDB dark_matter")
 
-    # ----------------------------------------------------------
-  
+        for _, row in stations.iterrows():
+            popup_text = f"<b>{row['name']}</b><br>🚲 Fietsen: {row[bike_col]}"
+            folium.CircleMarker(
+                location=[row[lat_col], row[lon_col]],
+                radius=4,
+                color="yellow",
+                fill=True,
+                fill_opacity=0.9,
+                popup=popup_text
+            ).add_to(m)
+            # Kleurcode functie
+            def get_color(value, max_val):
+                if value == 0:
+                    return 'red'
+                elif value < max_val * 0.3:
+                    return 'orange'
+                elif value < max_val * 0.7:
+                    return 'yellow'
+                else:
+                    return 'green'
+
+        st_folium(m, width=1100, height=600)
+            max_bikes_val = filtered_stations[bike_col].max()
+            
+            for _, row in filtered_stations.iterrows():
+                color = get_color(row[bike_col], max_bikes_val)
+                popup_text = f"""
+                <b>{row['name']}</b><br>
+                Fietsen: {row[bike_col]}<br>
+                Lege plekken: {row['nbEmptyDocks']}<br>
+                Totaal plekken: {row['nbDocks']}
+                """
+                
+                folium.CircleMarker(
+                    location=[row[lat_col], row[lon_col]],
+                    radius=6 + (row[bike_col] / max_bikes_val) * 10,
+                    color=color,
+                    fill=True,
+                    fill_opacity=0.8,
+                    popup=popup_text,
+                    tooltip=f"{row['name']}: {row[bike_col]} fietsen"
+                ).add_to(m)
+
+            # Legenda toevoegen
+            legend_html = '''
+            <div style="
+                position: fixed; 
+                bottom: 40px; left: 40px; 
+                width: 220px; 
+                background-color: rgba(255, 255, 255, 0.9); 
+                color: #000000;
+                border: 1px solid #999; 
+                border-radius: 8px; 
+                z-index: 9999; 
+                font-size: 14px; 
+                font-family: Arial, sans-serif; 
+                padding: 12px;
+                box-shadow: 0px 0px 6px rgba(0,0,0,0.2);
+            ">
+            <b style="font-size:15px; color:black;">Legenda - Aantal Fietsen</b><br>
+            <hr style="margin:6px 0; border: 0.5px solid #ccc;">
+            <i class="fa fa-circle" style="color:red"></i><text style='color:black;'>0 fietsen</text><br>
+            <i class="fa fa-circle" style="color:orange"></i><text style='color:black;'> Weinig (&lt; 30%)</text><br>
+            <i class="fa fa-circle" style="color:gold"></i><text style='color:black;'> Gemiddeld (30–70%)</text><br>
+            <i class="fa fa-circle" style="color:green"></i><text style='color:black;'> Veel (&gt; 70%)</text><br>
+            </div>
+            '''
+            m.get_root().html.add_child(folium.Element(legend_html))
+
+            
+            st_folium(m, width=1100, height=600)
+
+else:
+        st.error("❌ Kon kolommen niet vinden. Controleer of 'lat' en 'lon' in cycle_stations.csv staan.")
+        st.error(" Kon kolommen niet vinden. Controleer of 'lat' en 'lon' in cycle_stations.csv staan.")
+st.write("Beschikbare kolommen:", list(stations.columns))
+
 # ----------------------------------------------------------
+# 🌦️ TAB 3 — WEER EN TRENDS
 # TAB 3 — INTERACTIEVE TIJDREEKS & TRENDS
 # ----------------------------------------------------------
 with tab3:
+    st.header("🌤️ Invloed van weer op fietsverhuur")
     st.header("Tijdreeks Analyse & Weather Trends")
 
+if "tavg" in weather.columns:
+st.success("✅ Weerdata succesvol geladen!")
 
-    # Sidebar controls voor analyses
-    st.sidebar.subheader("Analyse Instellingen")
-    
-    # Prepareer echte rental data - simpel en direct
-    try:
-        # Extract date from rental Start Date and count rentals per day
-        rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], format='%d/%m/%Y %H:%M', errors='coerce')
-        rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
-        rentals_per_day.columns = ['date', 'rentals']
-        rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
+        # Sidebar controls voor analyses
+        st.sidebar.subheader("Analyse Instellingen")
         
-        # Add date column to weather data
-        weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
+# Prepareer echte rental data - simpel en direct
+try:
+# Extract date from rental Start Date and count rentals per day
+@@ -152,49 +260,465 @@ def load_data():
+weather_data['rentals'] = weather_data['rentals'].fillna(0)
+
+# Filter to only days with rentals
+            weather_data = weather_data[weather_data['rentals'] > 0]
+            real_data = weather_data[weather_data['rentals'] > 0].copy()
+
+            if len(weather_data) > 0:
+                st.success(f"✅ {len(weather_data)} dagen met weer- en rental data!")
+                st.info(f"Gemiddeld {weather_data['rentals'].mean():.0f} verhuur per dag")
+            if len(real_data) > 0:
+                st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
+                st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
+                
+                # Extend data with seasonal patterns
+                st.sidebar.checkbox("Uitbreiden met seizoenspatronen", value=True, key="extend_data")
+                if st.session_state.extend_data:
+                    # Create extended dataset based on patterns
+                    np.random.seed(42)
+                    extended_weather = weather[(weather['date'] >= '2022-01-01') & (weather['date'] <= '2022-12-31')].copy()
+                    
+                    # Simulate rental patterns based on temperature and season
+                    base_rentals = 35000  # Based on real average
+                    temp_effect = (extended_weather['tavg'].fillna(15) - 15) * 500  # Temperature effect
+                    season_effect = np.sin((extended_weather['date'].dt.dayofyear - 80) * 2 * np.pi / 365) * 10000  # Seasonal pattern
+                    random_noise = np.random.normal(0, 3000, len(extended_weather))
+                    
+                    extended_weather['rentals'] = np.maximum(0, 
+                        base_rentals + temp_effect + season_effect + random_noise
+                    ).astype(int)
+                    
+                    # Replace real data where available
+                    for _, row in real_data.iterrows():
+                        mask = extended_weather['date'] == row['date']
+                        extended_weather.loc[mask, 'rentals'] = row['rentals']
+                    
+                    weather_data = extended_weather
+                    st.info(f"📈 Dataset uitgebreid naar {len(weather_data)} dagen (heel 2022)")
+                else:
+                    weather_data = real_data
+                    
+else:
+                st.warning("⚠️ Geen overlappende datums. Gebruik gesimuleerde data.")
+                st.warning("Geen overlappende datums. Gebruik gesimuleerde data.")
+np.random.seed(42)
+weather_data = weather.copy()
+weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
+
+except Exception as e:
+            st.warning(f"⚠️ Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
+            st.warning(f"Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
+np.random.seed(42)
+weather_data = weather.copy()
+weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
+
+        # Interactieve tijdreeks
+        st.subheader("Interactieve Tijdreeks - Fietsverhuringen over Tijd")
         
-        # Merge weather with rental counts
-        weather_data = weather.merge(rentals_per_day, on='date', how='left')
-        weather_data['rentals'] = weather_data['rentals'].fillna(0)
-        
-        # Filter to only days with rentals
-        real_data = weather_data[weather_data['rentals'] > 0].copy()
-        
-        if len(real_data) > 0:
-            st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
-            st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
+        # Date range selector
+        if len(weather_data) > 30:
+            date_range = st.sidebar.date_input(
+                "Selecteer datumbereik:",
+                value=(weather_data['date'].min(), weather_data['date'].max()),
+                min_value=weather_data['date'].min(),
+                max_value=weather_data['date'].max()
+            )
             
-            # Extend data with seasonal patterns
-            st.sidebar.checkbox("Uitbreiden met seizoenspatronen", value=True, key="extend_data")
-            if st.session_state.extend_data:
-                # Create extended dataset based on patterns
-                np.random.seed(42)
-                extended_weather = weather[(weather['date'] >= '2022-01-01') & (weather['date'] <= '2022-12-31')].copy()
-                
-                # Simulate rental patterns based on temperature and season
-                base_rentals = 35000  # Based on real average
-                temp_effect = (extended_weather['tavg'].fillna(15) - 15) * 500  # Temperature effect
-                season_effect = np.sin((extended_weather['date'].dt.dayofyear - 80) * 2 * np.pi / 365) * 10000  # Seasonal pattern
-                random_noise = np.random.normal(0, 3000, len(extended_weather))
-                
-                extended_weather['rentals'] = np.maximum(0, 
-                    base_rentals + temp_effect + season_effect + random_noise
-                ).astype(int)
-                
-                # Replace real data where available
-                for _, row in real_data.iterrows():
-                    mask = extended_weather['date'] == row['date']
-                    extended_weather.loc[mask, 'rentals'] = row['rentals']
-                
-                weather_data = extended_weather
-                st.info(f"📈 Dataset uitgebreid naar {len(weather_data)} dagen (heel 2022)")
+            if len(date_range) == 2:
+                start_date, end_date = date_range
+                filtered_data = weather_data[
+                    (weather_data['date'] >= pd.to_datetime(start_date)) & 
+                    (weather_data['date'] <= pd.to_datetime(end_date))
+                ]
             else:
-                weather_data = real_data
-                
-        else:
-            st.warning("Geen overlappende datums. Gebruik gesimuleerde data.")
-            np.random.seed(42)
-            weather_data = weather.copy()
-            weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
-            
-    except Exception as e:
-        st.warning(f"Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
-        np.random.seed(42)
-        weather_data = weather.copy()
-        weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
-
-    # Interactieve tijdreeks
-    st.subheader("Interactieve Tijdreeks - Fietsverhuringen over Tijd")
-    
-    # Date range selector
-    if len(weather_data) > 30:
-        date_range = st.sidebar.date_input(
-            "Selecteer datumbereik:",
-            value=(weather_data['date'].min(), weather_data['date'].max()),
-            min_value=weather_data['date'].min(),
-            max_value=weather_data['date'].max()
-        )
-        
-        if len(date_range) == 2:
-            start_date, end_date = date_range
-            filtered_data = weather_data[
-                (weather_data['date'] >= pd.to_datetime(start_date)) & 
-                (weather_data['date'] <= pd.to_datetime(end_date))
-            ]
+                filtered_data = weather_data
         else:
             filtered_data = weather_data
-    else:
-        filtered_data = weather_data
-        
+            
         # Plotly interactieve lijndiagram
         fig_line = go.Figure()
         
@@ -319,8 +398,13 @@ with tab3:
 
         # Weather factor correlation
         st.subheader("Weather Factor Correlatie")
-        weather_factor = st.selectbox("Kies een weerfactor:", ["tavg", "tmin", "tmax", "prcp", "tsun"])
+weather_factor = st.selectbox("Kies een weerfactor:", ["tavg", "tmin", "tmax", "prcp", "tsun"])
 
+        # Plot regressie
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.regplot(
+            data=weather_data, x=weather_factor, y="rentals",
+            scatter_kws={'alpha':0.6, 'color':'#FFD700'}, line_kws={'color':'red'}
         # Plotly scatter plot
         fig_scatter = px.scatter(
             filtered_data, 
@@ -353,7 +437,22 @@ with tab3:
             aspect="auto",
             title="Correlatiematrix van alle numerieke variabelen",
             color_continuous_scale="RdBu"
-        )
+)
+        ax.set_title(f"Relatie tussen {weather_factor} en fietsverhuur", color="white")
+        ax.set_xlabel(weather_factor, color="white")
+        ax.set_ylabel("Aantal fietsverhuringen", color="white")
+        fig.patch.set_facecolor("#111")
+        ax.set_facecolor("#111")
+        st.pyplot(fig, use_container_width=True)
+
+        # Correlatiematrix
+        st.subheader("📊 Correlatiematrix van weerdata")
+        corr = weather_data.corr(numeric_only=True)
+        fig2, ax2 = plt.subplots(figsize=(10, 8))
+        sns.heatmap(corr, annot=True, cmap="YlOrBr", ax=ax2)
+        ax2.set_title("Correlatiematrix Weerdata", color="white")
+        fig2.patch.set_facecolor("#111")
+        st.pyplot(fig2, use_container_width=True)
         
         fig_heatmap.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
@@ -364,6 +463,11 @@ with tab3:
         
         st.plotly_chart(fig_heatmap, use_container_width=True)
 
+else:
+st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
+st.write("Beschikbare kolommen:", list(weather.columns))
+
+
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING
 # ----------------------------------------------------------
@@ -372,9 +476,6 @@ with tab4:
     
     if "tavg" in weather.columns:
         st.success("Machine Learning Voorspellingsmodellen")
-
-        if "tavg" in weather.columns:
-            st.success("✅ Weerdata succesvol geladen!")
         
         # Use the same weather_data from tab3
         try:
@@ -654,15 +755,3 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
-
-
-
-
-
-
-
-
-
-
-
-
