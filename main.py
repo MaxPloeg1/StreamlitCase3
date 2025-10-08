@@ -268,21 +268,21 @@ with tab2:
 
 # ----------------------------------------------------------
 
-
+# TAB 3 — TIJDREEKS & TRENDS + METROKAART
+# ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
 
-    # ----------------------------------------------------------
-    # 🚇 METROKAART
-    # ----------------------------------------------------------
     st.subheader("🚇 Metrokaart van Londen")
 
     try:
+        # Laad metrodata
         stations_df = pd.read_csv("London stations.csv")
         lines_df = pd.read_csv("https://raw.githubusercontent.com/MaxPloeg1/StreamlitCase3/refs/heads/main/London%20tube%20lines.csv")
 
         coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
 
+        # Lijnkleuren
         tube_colors = {
             "Bakerloo": "saddlebrown",
             "Central": "red",
@@ -310,7 +310,7 @@ with tab3:
             for _, row in lines_df.iterrows():
                 from_station = row["From Station"]
                 to_station = row["To Station"]
-                line = row["Tube Line"]
+                line = row["Tube Line"].replace(" Line", "").strip()
                 if from_station in coord_dict and to_station in coord_dict:
                     coords = [
                         (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
@@ -339,8 +339,9 @@ with tab3:
         st.error(f"Fout bij laden metrokaart: {e}")
 
     # ----------------------------------------------------------
-    # 📈 METRO VOORSPELLINGSGRAFIEK
+    # 🔮 METRO VOORSPELLINGSGRAFIEK
     # ----------------------------------------------------------
+
     st.markdown("---")
     st.markdown("## 📊 Metro voorspelling")
 
@@ -356,7 +357,8 @@ with tab3:
     from sklearn.linear_model import LinearRegression
     import numpy as np
 
-    metropredict = pd.read_csv("https://raw.githubusercontent.com/MaxPloeg1/StreamlitCase3/refs/heads/main/London%20tube%20lines.csv")
+    # Metrovoorspellingsdata
+    metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
 
     model = LinearRegression()
     stations = metropredict['name'].unique()
@@ -367,19 +369,19 @@ with tab3:
         data = metropredict[metropredict['name'] == station]
         X = data['Jaar'].values.reshape(-1, 1)
         y = data['Passagiers'].values
+
         model.fit(X, y)
         X_future = np.arange(2022, 2027).reshape(-1, 1)
         y_pred = model.predict(X_future)
 
-        # Haal de juiste metrolijn op en bijbehorende kleur
+        # Kleur bepalen op basis van lijn
         if "lijn" in data.columns:
-            lijn = str(data["lijn"].values[0]).replace(" Line", "").strip()
-        elif "Line" in data.columns:
-            lijn = str(data["Line"].values[0]).replace(" Line", "").strip()
+            lijn_raw = str(data["lijn"].values[0])
+            lijn = lijn_raw.replace(" Line", "").strip()
         else:
             lijn = "Unknown"
 
-        color = tube_colors.get(lijn, "#999999")
+        color = tube_colors.get(lijn, "#999999")  # Grijs als fallback
 
         # Historische data
         fig.add_trace(go.Scatter(
@@ -399,18 +401,16 @@ with tab3:
             line=dict(color=color, dash='dash')
         ))
 
+    # Lay-out
     fig.update_layout(
         title="Voorspelling passagiersaantallen per station",
         xaxis_title="Jaar",
         yaxis_title="Aantal passagiers",
-        template="plotly_white",
-        plot_bgcolor='rgba(255, 255, 255, 0.3)',
-        paper_bgcolor='rgba(255, 255, 255, 0.2)',
-        font=dict(color='#003082'),
-        legend=dict(
-            orientation="v",
-            bgcolor='rgba(255,255,255,0.7)'
-        )
+        template="plotly",  # Gebruik licht thema voor kleuren
+        font=dict(color='black'),
+        legend=dict(orientation="v", bgcolor='rgba(255,255,255,0.8)'),
+        plot_bgcolor='rgba(255,255,255,0.0)',
+        paper_bgcolor='rgba(255,255,255,0.0)'
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -624,6 +624,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
