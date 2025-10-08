@@ -342,6 +342,10 @@ with tab3:
     # 🔮 METRO VOORSPELLINGSGRAFIEK
     # ----------------------------------------------------------
 
+    # ----------------------------------------------------------
+    # 🔮 METRO VOORSPELLINGSGRAFIEK
+    # ----------------------------------------------------------
+
     st.markdown("---")
     st.markdown("## 📊 Metro voorspelling")
 
@@ -360,6 +364,7 @@ with tab3:
     # Metrovoorspellingsdata
     metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
 
+    # Model en stations
     model = LinearRegression()
     stations = metropredict['name'].unique()
 
@@ -374,14 +379,9 @@ with tab3:
         X_future = np.arange(2022, 2027).reshape(-1, 1)
         y_pred = model.predict(X_future)
 
-        # Kleur bepalen op basis van lijn
-        if "lijn" in data.columns:
-            lijn_raw = str(data["lijn"].values[0])
-            lijn = lijn_raw.replace(" Line", "").strip()
-        else:
-            lijn = "Unknown"
-
-        color = tube_colors.get(lijn, "#999999")  # Grijs als fallback
+        # Match met lijnkleur
+        lijn = data["lijn"].values[0] if "lijn" in data.columns else "Unknown"
+        color = tube_colors.get(lijn, "#999999")  # Fallback kleur
 
         # Historische data
         fig.add_trace(go.Scatter(
@@ -401,16 +401,15 @@ with tab3:
             line=dict(color=color, dash='dash')
         ))
 
-    # Lay-out
     fig.update_layout(
         title="Voorspelling passagiersaantallen per station",
         xaxis_title="Jaar",
         yaxis_title="Aantal passagiers",
-        template="plotly",  # Gebruik licht thema voor kleuren
-        font=dict(color='black'),
-        legend=dict(orientation="v", bgcolor='rgba(255,255,255,0.8)'),
-        plot_bgcolor='rgba(255,255,255,0.0)',
-        paper_bgcolor='rgba(255,255,255,0.0)'
+        template="plotly_white",
+        plot_bgcolor='rgba(255, 255, 255, 0.3)',
+        paper_bgcolor='rgba(255, 255, 255, 0.2)',
+        font=dict(color='#003082'),
+        legend=dict(orientation="v", bgcolor='rgba(255,255,255,0.7)')
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -624,6 +623,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
