@@ -270,7 +270,6 @@ with tab2:
 
 
 # TAB 3 — TIJDREEKS & TRENDS + METROKAART
-
 # ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
@@ -281,7 +280,7 @@ with tab3:
     try:
         # Laad metrodata
         stations_df = pd.read_csv("London stations.csv")
-        lines_df = pd.read_csv("London tube lines.csv")
+        lines_df = pd.read_csv("https://raw.githubusercontent.com/MaxPloeg1/StreamlitCase3/refs/heads/main/London%20tube%20lines.csv")
 
         # Station coördinaten
         coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
@@ -315,6 +314,9 @@ with tab3:
                 from_station = row["From Station"]
                 to_station = row["To Station"]
                 line = row["Tube Line"]
+                # Colour for this line
+                color = tube_colors.get(line, "blue")
+
                 if from_station in coord_dict and to_station in coord_dict:
                     coords = [
                         (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
@@ -322,7 +324,7 @@ with tab3:
                     ]
                     folium.PolyLine(
                         coords,
-                        color=tube_colors.get(line, "blue"),
+                        color=color,
                         weight=3,
                         tooltip=line
                     ).add_to(metro_map)
@@ -364,13 +366,19 @@ with tab3:
     # Metrovoorspellingsdata
     metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
 
- # Maak mapping van station naar lijnkleur
-station_to_color = {}
-for _, row in metropredict.iterrows():
-    station = row['name']
-    lijn = str(row['Line']).replace(" Line", "").strip()  # ✅ hier gefixt
-    kleur = tube_colors.get(lijn, "#999999")
-    station_to_color[station] = kleur
+    # Maak mapping van station naar lijnkleur, op basis van line in metropredict + tube_colors
+    station_to_color = {}
+    if "Line" in metropredict.columns:
+        for _, row in metropredict.iterrows():
+            station = row['name']
+            lijn = str(row['Line']).replace(" Line", "").strip()
+            kleur = tube_colors.get(lijn, "#999999")
+            station_to_color[station] = kleur
+    else:
+        # fallback: gebruik een default kleur
+        for station in metropredict['name'].unique():
+            station_to_color[station] = "#999999"
+
     # Model en stations
     model = LinearRegression()
     stations = metropredict['name'].unique()
@@ -628,6 +636,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
