@@ -52,10 +52,6 @@ else:
 # ----------------------------------------------------------
 # DATA VOORBEREIDING
 # ----------------------------------------------------------
-# Hernoem kolom 'long' naar 'lon' voor Streamlit map compatibility
-if "long" in stations.columns:
-    stations = stations.rename(columns={"long": "lon"})
-    st.sidebar.success("Renamed 'long' to 'lon'")
 
 # Controleer of vereiste kolommen bestaan
 required_cols = ["lat", "lon", "nbBikes", "name"]
