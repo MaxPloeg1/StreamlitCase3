@@ -268,10 +268,9 @@ with tab2:
 
 # ----------------------------------------------------------
 
-## ----------------------------------------------------------
-# ----------------------------------------------------------
-# ----------------------------------------------------------
+
 # TAB 3 — TIJDREEKS & TRENDS + METROKAART
+
 # ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
@@ -365,6 +364,14 @@ with tab3:
     # Metrovoorspellingsdata
     metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
 
+    # Maak mapping van station naar lijnkleur
+    station_to_color = {}
+    for _, row in metropredict.iterrows():
+        station = row['name']
+        lijn = str(row['lijn']).replace(" Line", "").strip()
+        kleur = tube_colors.get(lijn, "#999999")
+        station_to_color[station] = kleur
+
     # Model en stations
     model = LinearRegression()
     stations = metropredict['name'].unique()
@@ -380,9 +387,7 @@ with tab3:
         X_future = np.arange(2022, 2027).reshape(-1, 1)
         y_pred = model.predict(X_future)
 
-        # Match met lijnkleur
-        lijn = data["lijn"].values[0].replace(" Line", "").strip() if "lijn" in data.columns else "Unknown"
-        color = tube_colors.get(lijn, "#999999")  # Fallback kleur
+        color = station_to_color.get(station, "#999999")
 
         # Historische data
         fig.add_trace(go.Scatter(
@@ -624,6 +629,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
