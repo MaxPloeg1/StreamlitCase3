@@ -270,19 +270,22 @@ with tab2:
 
 # TAB 3 — TIJDREEKS & TRENDS + METROKAART
 # ----------------------------------------------------------
+# ----------------------------------------------------------
+# TAB 3 — TIJDREEKS & TRENDS + METROKAART
+# ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
 
+    # Alleen metrokaart optie
     st.subheader("🚇 Metrokaart van Londen")
 
     try:
         # Laad metrodata
         stations_df = pd.read_csv("London stations.csv")
-        lines_df = pd.read_csv("https://raw.githubusercontent.com/MaxPloeg1/StreamlitCase3/refs/heads/main/London%20tube%20lines.csv")
+        lines_df = pd.read_csv("London tube lines.csv")
 
         coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
 
-        # Lijnkleuren
         tube_colors = {
             "Bakerloo": "saddlebrown",
             "Central": "red",
@@ -310,7 +313,7 @@ with tab3:
             for _, row in lines_df.iterrows():
                 from_station = row["From Station"]
                 to_station = row["To Station"]
-                line = row["Tube Line"].replace(" Line", "").strip()
+                line = row["Tube Line"]
                 if from_station in coord_dict and to_station in coord_dict:
                     coords = [
                         (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
@@ -339,11 +342,7 @@ with tab3:
         st.error(f"Fout bij laden metrokaart: {e}")
 
     # ----------------------------------------------------------
-    # 🔮 METRO VOORSPELLINGSGRAFIEK
-    # ----------------------------------------------------------
-
-    # ----------------------------------------------------------
-    # 🔮 METRO VOORSPELLINGSGRAFIEK
+    # 🔮 METRO VOORSPELLINGSGRAFIEK TOEGEVOEGD
     # ----------------------------------------------------------
 
     st.markdown("---")
@@ -367,10 +366,15 @@ with tab3:
     # Model en stations
     model = LinearRegression()
     stations = metropredict['name'].unique()
+    colors = [
+        "#00BFC4", "#F8766D", "#7CAE00", "#C77CFF", "#00BA38",
+        "#FF61C3", "#619CFF", "#F564E3", "#B79F00", "#E76BF3"
+    ]
 
     fig = go.Figure()
 
-    for station in stations:
+    # Lijnen per station
+    for i, station in enumerate(stations):
         data = metropredict[metropredict['name'] == station]
         X = data['Jaar'].values.reshape(-1, 1)
         y = data['Passagiers'].values
@@ -379,9 +383,7 @@ with tab3:
         X_future = np.arange(2022, 2027).reshape(-1, 1)
         y_pred = model.predict(X_future)
 
-        # Match met lijnkleur
-        lijn = data["lijn"].values[0] if "lijn" in data.columns else "Unknown"
-        color = tube_colors.get(lijn, "#999999")  # Fallback kleur
+        color = colors[i % len(colors)]
 
         # Historische data
         fig.add_trace(go.Scatter(
@@ -401,6 +403,7 @@ with tab3:
             line=dict(color=color, dash='dash')
         ))
 
+    # Layout instellingen
     fig.update_layout(
         title="Voorspelling passagiersaantallen per station",
         xaxis_title="Jaar",
@@ -409,7 +412,10 @@ with tab3:
         plot_bgcolor='rgba(255, 255, 255, 0.3)',
         paper_bgcolor='rgba(255, 255, 255, 0.2)',
         font=dict(color='#003082'),
-        legend=dict(orientation="v", bgcolor='rgba(255,255,255,0.7)')
+        legend=dict(
+            orientation="v",
+            bgcolor='rgba(255,255,255,0.7)'
+        )
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -623,6 +629,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
