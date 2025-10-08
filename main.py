@@ -263,8 +263,8 @@ with tab3:
             real_data = weather_data[weather_data['rentals'] > 0].copy()
             
             if len(real_data) > 0:
-                st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
-                st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
+               # st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
+               # st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
                 
                 # Extend data with seasonal patterns
                 st.sidebar.checkbox("Uitbreiden met seizoenspatronen", value=True, key="extend_data")
@@ -722,4 +722,5 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
