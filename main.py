@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
+import matplotlib.pyplot as plt
 
 # ----------------------------------------------------------
 # PAGINA-INSTELLINGEN
