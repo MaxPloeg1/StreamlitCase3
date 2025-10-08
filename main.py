@@ -120,7 +120,7 @@ with tab2:
 
     # Controle of kolommen bestaan
     if lat_col in stations.columns and lon_col in stations.columns:
-        st.success(f"✅ {len(filtered_stations)} stations gevonden (gefilterd van {len(stations)})")
+       # st.success(f"✅ {len(filtered_stations)} stations gevonden (gefilterd van {len(stations)})")
 
         # Metrics in columns
         col1, col2, col3, col4 = st.columns(4)
@@ -722,5 +722,6 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
