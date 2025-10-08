@@ -128,30 +128,31 @@ with tab1:
     st.pyplot(fig, width='content')
     st.write(f"Correlatiecoëfficiënt (r): **{r_value:.2f}**")
 
-    st.header("📊 Correlatie tussen Neerslag en Maximale Temperatuur")
+
+    st.header("📊 Correlatie tussen Neerslag en Gemiddelde Temperatuur")
 
     weather = pd.read_csv("weather_london.csv")
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"])
 
     # Verwijder rijen met missende waarden
-    df_corr2 = weather.dropna(subset=["prcp", "tmax"])
+    df_corr3 = weather.dropna(subset=["prcp", "tavg"])
 
     # Bereken regressielijn
-    slope2, intercept2, r_value2, p_value2, std_err2 = linregress(df_corr2["tmax"], df_corr2["prcp"])
-    line2 = slope2 * df_corr2["tmax"] + intercept2
+    slope3, intercept3, r_value3, p_value3, std_err3 = linregress(df_corr3["tavg"], df_corr3["prcp"])
+    line3 = slope3 * df_corr3["tavg"] + intercept3
 
     # Plot
-    fig2, ax2 = plt.subplots(figsize=(5, 3))
-    ax2.scatter(df_corr2["tmax"], df_corr2["prcp"], color="navy", alpha=0.6, label="Waarnemingen")
-    ax2.plot(df_corr2["tmax"], line2, color="red", label=f"Regressielijn (r={r_value2:.2f})")
-    ax2.set_xlabel("Maximale temperatuur (°C)")
-    ax2.set_ylabel("Neerslag (mm)")
-    ax2.set_title("Correlatie tussen Neerslag en Maximale Temperatuur")
-    ax2.legend()
+    fig3, ax3 = plt.subplots(figsize=(4, 2.5))
+    ax3.scatter(df_corr3["tavg"], df_corr3["prcp"], color="navy", alpha=0.6, label="Waarnemingen")
+    ax3.plot(df_corr3["tavg"], line3, color="red", label=f"Regressielijn (r={r_value3:.2f})")
+    ax3.set_xlabel("Gemiddelde temperatuur (°C)")
+    ax3.set_ylabel("Neerslag (mm)")
+    ax3.set_title("Correlatie tussen Neerslag en Gemiddelde Temperatuur")
+    ax3.legend()
 
-    st.pyplot(fig2, width='content')
-    st.write(f"Correlatiecoëfficiënt (r): **{r_value2:.2f}**")
+    st.pyplot(fig3, width='content')
+    st.write(f"Correlatiecoëfficiënt (r): **{r_value3:.2f}**")
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
