@@ -102,7 +102,7 @@ with tab1:
 with tab2:
     st.header("🚴‍♀️ Interactieve Fietsstations & Metrokaart")
 
-    # 🎛️ Sidebar Instellingen
+    # Sidebar controls voor kaart
     st.sidebar.subheader("🎛️ Kaart Instellingen")
 
     # Kleurcode-opties
@@ -111,7 +111,7 @@ with tab2:
         ["nbBikes", "nbEmptyDocks", "nbDocks", "Locatie (lat/lon)"]
     )
 
-    # Bike count filters
+    # Bike count filter
     min_bikes = st.sidebar.slider("Minimum aantal fietsen:", 0, int(stations['nbBikes'].max()), 0)
     max_bikes = st.sidebar.slider("Maximum aantal fietsen:", 0, int(stations['nbBikes'].max()), int(stations['nbBikes'].max()))
 
@@ -121,11 +121,11 @@ with tab2:
         (stations['nbBikes'] <= max_bikes)
     ]
 
-    # Controleer aanwezigheid kolommen
+    # Controle of kolommen bestaan
     if lat_col in stations.columns and lon_col in stations.columns:
         st.success(f"✅ {len(filtered_stations)} stations gevonden (gefilterd van {len(stations)})")
 
-        # 📊 Metrics
+        # Metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Gemiddeld aantal fietsen", f"{filtered_stations[bike_col].mean():.1f}")
@@ -136,7 +136,7 @@ with tab2:
         with col4:
             st.metric("Max fietsen per station", f"{filtered_stations[bike_col].max()}")
 
-        # 🌍 Plotly kaart van fietsstations
+        # Plotly interactieve kaart
         import plotly.express as px
         fig_map = px.scatter_mapbox(
             filtered_stations,
@@ -144,7 +144,7 @@ with tab2:
             lon="lon",
             color=color_option.split()[0] if color_option != "Locatie (lat/lon)" else "lat",
             size="nbBikes",
-            hover_name="name" if "name" in filtered_stations.columns else "terminalName",
+            hover_name="name",
             hover_data=["nbBikes", "nbEmptyDocks", "nbDocks"],
             color_continuous_scale="Viridis",
             size_max=15,
@@ -167,73 +167,7 @@ with tab2:
         st.error("❌ Kolommen 'lat' en 'lon' niet gevonden in cycle_stations.csv")
 
     # ----------------------------------------------------------
-    # 🚇 METROKAART (onder de fietskaart)
-    # ----------------------------------------------------------
-    st.divider()
-    st.subheader("🚇 London Metro Kaart")
-
-    # 🔹 Laad data
-    tube_stations = load_csv("London stations.csv")
-    tube_lines = load_csv("London tube lines.csv")
-
-    if tube_stations is None or tube_lines is None:
-        st.info("ℹ️ Voeg 'London stations.csv' en 'London tube lines.csv' toe om de metrokaart te tonen.")
-    else:
-        # Maak kolomnamen lowercase
-        tube_stations.columns = tube_stations.columns.str.strip().str.lower()
-        tube_lines.columns = tube_lines.columns.str.strip().str.lower()
-
-        # Hernoem relevante kolommen
-        tube_stations = tube_stations.rename(columns={
-            "latitude": "lat",
-            "longitude": "lon",
-            "station": "name"
-        })
-
-        # Voeg bezoekersdata toe (synthetisch als placeholder)
-        if "entries" not in tube_stations.columns:
-            rng = np.random.default_rng(42)
-            tube_stations["entries"] = rng.integers(5000, 60000, len(tube_stations))
-
-        # ⚙️ Filteropties
-        with st.expander("⚙️ Metro Filteropties", expanded=True):
-            day_type = st.radio("Toon data voor", ["Weekdagen", "Weekend"], index=0)
-            density = st.slider("Selecteer drukte", 0, 100, 0)
-            show_stations = st.checkbox("Metro stations en bezoekersaantal", value=True)
-            show_lines = st.checkbox("Metro lijnen", value=True)
-
-        # 🌐 Folium-kaart aanmaken
-        m2 = folium.Map(location=[51.5074, -0.1278], zoom_start=10, tiles="CartoDB positron")
-
-        # 🔹 Metro lijnen tekenen
-        if show_lines and "line" in tube_lines.columns:
-            for line, seg in tube_lines.groupby("line"):
-                if {"lat", "lon"}.issubset(seg.columns):
-                    coords = seg[["lat", "lon"]].dropna().values.tolist()
-                    if len(coords) > 1:
-                        color = f"#{abs(hash(line)) % 0xFFFFFF:06x}"
-                        folium.PolyLine(coords, color=color, weight=3, opacity=0.85,
-                                        popup=f"Lijn: {line}").add_to(m2)
-
-        # 🔹 Metro stations tekenen
-        if show_stations:
-            for _, row in tube_stations.iterrows():
-                if pd.notna(row.get("lat")) and pd.notna(row.get("lon")):
-                    visitors = int(row.get("entries", 0))
-                    if visitors < density * 500:
-                        continue
-                    color = "red" if day_type == "Weekdagen" else "blue"
-                    folium.CircleMarker(
-                        [row["lat"], row["lon"]],
-                        radius=max(2, min(visitors / 8000, 10)),
-                        color=color,
-                        fill=True,
-                        fill_opacity=0.8,
-                        popup=f"🚇 {row['name']}<br>Bezoekers: {visitors:,}<br>Zone: {row.get('zone', '-')}"
-                    ).add_to(m2)
-
-        # Kaart tonen
-        st_folium(m2, width=1100, height=600)
+  
 # ----------------------------------------------------------
 # TAB 3 — INTERACTIEVE TIJDREEKS & TRENDS
 # ----------------------------------------------------------
@@ -724,6 +658,7 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
 
