@@ -83,7 +83,7 @@ with tab1:
         st.dataframe(weather.head(), use_container_width=True)
 
 
-    st.subheader("📊 Correlatie tussen fietsverhuringen en weersvariabelen")
+    st.subheader("🌦️ Weer tegenover fietsverhuringen")
 
     # Data voorbereiden
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
@@ -98,39 +98,48 @@ with tab1:
     # Samenvoegen met weerdata
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Alleen numerieke kolommen van weerdata (zonder 'rentals')
-    weather_numeric = merged.drop(columns=["rentals", "date"]).select_dtypes(include=[np.number])
-
-    # Correlatie berekenen tussen rentals en elke weerkolom
-    corr_with_rentals = weather_numeric.corrwith(merged["rentals"]).round(3)
-
-    # Omzetten naar DataFrame voor Plotly
-    corr_df = corr_with_rentals.reset_index()
-    corr_df.columns = ["Weersvariabele", "Correlatie"]
-
-    # Plot als staafdiagram
-    fig_corr = px.bar(
-        corr_df,
-        x="Weersvariabele",
-        y="Correlatie",
-        color="Correlatie",
-        color_continuous_scale="RdBu_r",
-        title="📈 Correlatie van weerdata met aantal fietsverhuringen",
-        template="plotly_dark",
-        text="Correlatie"
+    # 1️⃣ Temperatuur tegenover verhuringen
+    fig_temp = px.scatter(
+        merged, x="tavg", y="rentals",
+        color="tavg", color_continuous_scale="sunset",
+        title="🌡️ Gemiddelde temperatuur vs. fietsverhuringen",
+        labels={"tavg": "Gemiddelde temperatuur (°C)", "rentals": "Aantal verhuringen"},
+        template="plotly_dark"
     )
+    st.plotly_chart(fig_temp, use_container_width=True)
 
-    fig_corr.update_traces(texttemplate="%{text:.2f}", textposition="outside")
-    fig_corr.update_layout(
-        width=900,
-        height=600,
-        title_font_size=22,
-        xaxis_title="Weersvariabele",
-        yaxis_title="Correlatiecoëfficiënt",
-        margin=dict(l=60, r=60, t=80, b=60)
+    # 2️⃣ Neerslag tegenover verhuringen
+    fig_rain = px.scatter(
+        merged, x="prcp", y="rentals",
+        color="prcp", color_continuous_scale="Blues",
+        title="☔ Neerslag vs. fietsverhuringen",
+        labels={"prcp": "Neerslag (mm)", "rentals": "Aantal verhuringen"},
+        template="plotly_dark"
     )
+    st.plotly_chart(fig_rain, use_container_width=True)
 
-    st.plotly_chart(fig_corr, use_container_width=True)
+    # 3️⃣ Maximum temperatuur tegenover verhuringen
+    if "tmax" in merged.columns:
+        fig_tmax = px.scatter(
+            merged, x="tmax", y="rentals",
+            color="tmax", color_continuous_scale="OrRd",
+            title="🔥 Maximum temperatuur vs. fietsverhuringen",
+            labels={"tmax": "Maximale temperatuur (°C)", "rentals": "Aantal verhuringen"},
+            template="plotly_dark"
+        )
+        st.plotly_chart(fig_tmax, use_container_width=True)
+
+    # 4️⃣ Windsnelheid tegenover verhuringen (indien aanwezig)
+    for wind_col in ["awnd", "wspd"]:
+        if wind_col in merged.columns:
+            fig_wind = px.scatter(
+                merged, x=wind_col, y="rentals",
+                color=wind_col, color_continuous_scale="PuBuGn",
+                title=f"💨 Windsnelheid ({wind_col}) vs. fietsverhuringen",
+                labels={wind_col: "Gemiddelde windsnelheid (m/s)", "rentals": "Aantal verhuringen"},
+                template="plotly_dark"
+            )
+            st.plotly_chart(fig_wind, use_container_width=True)
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
