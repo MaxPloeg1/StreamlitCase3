@@ -239,10 +239,10 @@ with tab3:
     st.header("Tijdreeks Analyse & Weather Trends")
 
     if "tavg" in weather.columns:
-        st.success("✅ Weerdata succesvol geladen!")
+       # st.success("✅ Weerdata succesvol geladen!")
 
         # Sidebar controls voor analyses
-        st.sidebar.subheader("Analyse Instellingen")
+       # st.sidebar.subheader("Analyse Instellingen")
         
         # Prepareer echte rental data - simpel en direct
         try:
@@ -722,3 +722,4 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
