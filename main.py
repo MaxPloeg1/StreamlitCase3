@@ -110,9 +110,16 @@ with tab1:
 
     st.header("🌡️ Temperatuur vs Windsnelheid")
 
-    # Selecteer datumbereik met slider
-    min_date = weather.index.min()
-    max_date = weather.index.max()
+    st.header("🌡️ Temperatuur vs Windsnelheid")
+
+    # Laad de data en converteer de index naar een kolom
+    weather = pd.read_csv("weather_london.csv")
+    weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
+    weather["date"] = pd.to_datetime(weather["date"])
+
+    # Slider voor datumbereik
+    min_date = weather["date"].min()
+    max_date = weather["date"].max()
     date_range = st.slider(
         "Selecteer datumbereik",
         min_value=min_date,
@@ -122,9 +129,9 @@ with tab1:
     )
 
     # Filter de data
-    filtered = weather.loc[date_range[0]:date_range[1]]
+    filtered = weather[(weather["date"] >= date_range[0]) & (weather["date"] <= date_range[1])]
 
-    # Plot
+    # Plot temperatuur vs windsnelheid
     fig, ax = plt.subplots()
     ax.scatter(filtered["tavg"], filtered["wspd"], color="teal", alpha=0.7)
     ax.set_xlabel("Gemiddelde temperatuur (°C)")
@@ -132,8 +139,6 @@ with tab1:
     ax.set_title("Temperatuur vs Windsnelheid")
 
     st.pyplot(fig)
-
-
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
