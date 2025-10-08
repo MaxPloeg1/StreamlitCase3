@@ -381,7 +381,7 @@ with tab3:
         y_pred = model.predict(X_future)
 
         # Match met lijnkleur
-        lijn = data["lijn"].values[0] if "lijn" in data.columns else "Unknown"
+     lijn = data["lijn"].values[0].replace(" Line", "").strip() if "lijn" in data.columns else "Unknown"
         color = tube_colors.get(lijn, "#999999")  # Fallback kleur
 
         # Historische data
@@ -624,6 +624,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
