@@ -364,14 +364,13 @@ with tab3:
     # Metrovoorspellingsdata
     metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
 
-    # Maak mapping van station naar lijnkleur
-    station_to_color = {}
-    for _, row in metropredict.iterrows():
-        station = row['name']
-        lijn = str(row['lijn']).replace(" Line", "").strip()
-        kleur = tube_colors.get(lijn, "#999999")
-        station_to_color[station] = kleur
-
+ # Maak mapping van station naar lijnkleur
+station_to_color = {}
+for _, row in metropredict.iterrows():
+    station = row['name']
+    lijn = str(row['Line']).replace(" Line", "").strip()  # ✅ hier gefixt
+    kleur = tube_colors.get(lijn, "#999999")
+    station_to_color[station] = kleur
     # Model en stations
     model = LinearRegression()
     stations = metropredict['name'].unique()
@@ -629,6 +628,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
