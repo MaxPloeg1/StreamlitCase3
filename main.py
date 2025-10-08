@@ -117,7 +117,7 @@ with tab1:
     line = slope * df_corr["tavg"] + intercept
 
     # Plot
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(5, 3))
     ax.scatter(df_corr["tavg"], df_corr["wspd"], color="teal", alpha=0.6, label="Waarnemingen")
     ax.plot(df_corr["tavg"], line, color="orange", label=f"Regressielijn (r={r_value:.2f})")
     ax.set_xlabel("Gemiddelde temperatuur (°C)")
@@ -142,7 +142,7 @@ with tab1:
     line2 = slope2 * df_corr2["tmax"] + intercept2
 
     # Plot
-    fig2, ax2 = plt.subplots()
+    fig2, ax2 = plt.subplots(figsize=(5, 3))
     ax2.scatter(df_corr2["tmax"], df_corr2["prcp"], color="navy", alpha=0.6, label="Waarnemingen")
     ax2.plot(df_corr2["tmax"], line2, color="red", label=f"Regressielijn (r={r_value2:.2f})")
     ax2.set_xlabel("Maximale temperatuur (°C)")
