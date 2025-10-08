@@ -45,7 +45,7 @@ def load_data():
 # Load data with error handling
 data_result = load_data()
 if data_result[0] is not None:
-    stations, rentals, weather = data_result
+    stations, rentals, weather, tube_stations = data_result
 else:
     st.error("Failed to load data. Please check that all CSV files are present.")
     st.stop()
@@ -706,6 +706,7 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
 
