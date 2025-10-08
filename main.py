@@ -101,44 +101,33 @@ with tab1:
     # Samenvoegen met weerdata
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
+    st.header("📈 Simpele Weerplots")
 
-    st.header("🌤️ Overzicht Weerdata Londen")
-
-    # Laad de data
     weather = pd.read_csv("weather_london.csv", index_col=0)
 
-    # Hernoem kolommen voor duidelijkheid
-    weather = weather.rename(columns={
-        "tavg": "Gemiddelde Temp (°C)",
-        "tmin": "Min Temp (°C)",
-        "tmax": "Max Temp (°C)",
-        "prcp": "Neerslag (mm)",
-        "snow": "Sneeuw (mm)",
-        "wdir": "Windrichting (°)",
-        "wspd": "Windsnelheid (m/s)",
-        "wpgt": "Windstoten (m/s)",
-        "pres": "Luchtdruk (hPa)",
-        "tsun": "Zonneschijn (uren)"
-    })
+    # Gemiddelde temperatuur door de tijd
+    st.subheader("Gemiddelde temperatuur per dag")
+    fig, ax = plt.subplots()
+    weather["tavg"].plot(ax=ax, color="tomato")
+    ax.set_ylabel("Gemiddelde Temp (°C)")
+    ax.set_xlabel("Datum")
+    st.pyplot(fig)
 
-    # Toon een samenvattende tabel
-    st.dataframe(
-        weather.style
-            .background_gradient(cmap="coolwarm", subset=["Gemiddelde Temp (°C)"])
-            .background_gradient(cmap="Blues", subset=["Neerslag (mm)"])
-            .background_gradient(cmap="YlOrRd", subset=["Windsnelheid (m/s)"])
-            .highlight_null("lightgray"),
-        use_container_width=True
-    )
+    # Neerslag door de tijd
+    st.subheader("Neerslag per dag")
+    fig, ax = plt.subplots()
+    weather["prcp"].fillna(0).plot(ax=ax, color="royalblue")
+    ax.set_ylabel("Neerslag (mm)")
+    ax.set_xlabel("Datum")
+    st.pyplot(fig)
 
-    # Toon enkele kernstatistieken
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Gemiddelde temperatuur", f"{weather['Gemiddelde Temp (°C)'].mean():.1f}°C")
-    with col2:
-        st.metric("Gemiddelde neerslag", f"{weather['Neerslag (mm)'].mean():.2f} mm")
-    with col3:
-        st.metric("Gemiddelde windsnelheid", f"{weather['Windsnelheid (m/s)'].mean():.2f} m/s")
+    # Windsnelheid door de tijd
+    st.subheader("Windsnelheid per dag")
+    fig, ax = plt.subplots()
+    weather["wspd"].fillna(0).plot(ax=ax, color="seagreen")
+    ax.set_ylabel("Windsnelheid (m/s)")
+    ax.set_xlabel("Datum")
+    st.pyplot(fig)
 
     # 1️⃣ Temperatuur tegenover verhuringen
     fig_temp = px.scatter(
