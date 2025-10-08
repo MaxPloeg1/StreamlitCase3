@@ -1,9 +1,7 @@
-# 🚆 NS: LondOnderweg! — Echte Data Dashboard
+# 🚆 NS: LondOnderweg! — Echte Data Dashboard (met datumfix)
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import folium
 from streamlit_folium import st_folium
 import plotly.express as px
@@ -131,114 +129,45 @@ with tab2:
     st.plotly_chart(fig_map, use_container_width=True)
 
 # ----------------------------------------------------------
-# TAB 3 — TIJDREEKS & WEATHER TRENDS (ALLEEN ECHTE DATA)
+# TAB 3 — TIJDREEKS & WEATHER TRENDS (ALLEEN ECHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Weather Trends")
 
-    if "tavg" in weather.columns:
-       # st.success("✅ Weerdata succesvol geladen!")
+    if "tavg" not in weather.columns:
+        st.error("❌ Kolom 'tavg' ontbreekt in weather_london.csv.")
+        st.stop()
 
-        # Sidebar controls voor analyses
-       # st.sidebar.subheader("Analyse Instellingen")
-        
-        # Prepareer echte rental data - simpel en direct
-        try:
-            # Extract date from rental Start Date and count rentals per day
-            rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], format='%d/%m/%Y %H:%M', errors='coerce')
-            rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
-            rentals_per_day.columns = ['date', 'rentals']
-            rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
-            
-            # Add date column to weather data
-            weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
-            
-            # Merge weather with rental counts
-            weather_data = weather.merge(rentals_per_day, on='date', how='left')
-            weather_data['rentals'] = weather_data['rentals'].fillna(0)
-            
-            # Filter to only days with rentals
-            real_data = weather_data[weather_data['rentals'] > 0].copy()
-            
-            if len(real_data) > 0:
-               # st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
-               # st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
-                
-                # Extend data with seasonal patterns
-                st.sidebar.checkbox("Uitbreiden met seizoenspatronen", value=True, key="extend_data")
-                if st.session_state.extend_data:
-                    # Create extended dataset based on patterns
-                    np.random.seed(42)
-                    extended_weather = weather[(weather['date'] >= '2022-01-01') & (weather['date'] <= '2022-12-31')].copy()
-                    
-                    # Simulate rental patterns based on temperature and season
-                    base_rentals = 35000  # Based on real average
-                    temp_effect = (extended_weather['tavg'].fillna(15) - 15) * 500  # Temperature effect
-                    season_effect = np.sin((extended_weather['date'].dt.dayofyear - 80) * 2 * np.pi / 365) * 10000  # Seasonal pattern
-                    random_noise = np.random.normal(0, 3000, len(extended_weather))
-                    
-                    extended_weather['rentals'] = np.maximum(0, 
-                        base_rentals + temp_effect + season_effect + random_noise
-                    ).astype(int)
-                    
-                    # Replace real data where available
-                    for _, row in real_data.iterrows():
-                        mask = extended_weather['date'] == row['date']
-                        extended_weather.loc[mask, 'rentals'] = row['rentals']
-                    
-                    weather_data = extended_weather
-                    st.info(f"📈 Dataset uitgebreid naar {len(weather_data)} dagen (heel 2022)")
-                else:
-                    weather_data = real_data
-                    
-            else:
-                st.warning("Geen overlappende datums. Gebruik gesimuleerde data.")
-                np.random.seed(42)
-                weather_data = weather.copy()
-                weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
-                
-        except Exception as e:
-            st.warning(f"Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
-            np.random.seed(42)
-            weather_data = weather.copy()
-            weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
+    try:
+        # ✅ Datumfix: uniforme datums maken
+        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], format="%d/%m/%Y %H:%M", errors="coerce")
+        rentals["date"] = rentals["Start Date"].dt.normalize()  # alleen datum
+        rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
 
-        # Interactieve tijdreeks
-        st.subheader("Interactieve Tijdreeks - Fietsverhuringen over Tijd")
-        
-        # Date range selector
-        if len(weather_data) > 30:
-            date_range = st.sidebar.date_input(
-                "Selecteer datumbereik:",
-                value=(weather_data['date'].min(), weather_data['date'].max()),
-                min_value=weather_data['date'].min(),
-                max_value=weather_data['date'].max()
-            )
-            
-            if len(date_range) == 2:
-                start_date, end_date = date_range
-                filtered_data = weather_data[
-                    (weather_data['date'] >= pd.to_datetime(start_date)) & 
-                    (weather_data['date'] <= pd.to_datetime(end_date))
-                ]
-            else:
-                filtered_data = weather_data
-        else:
-            filtered_data = weather_data
-            
-        # Plotly interactieve lijndiagram
-        fig_line = go.Figure()
-        
-        # Add rental line
-        fig_line.add_trace(go.Scatter(
-            x=filtered_data['date'],
-            y=filtered_data['rentals'],
-            mode='lines+markers',
-            name='Fietsverhuringen',
-            line=dict(color='#FFD700', width=3),
-            hovertemplate='<b>%{x}</b><br>Verhuringen: %{y:,}<extra></extra>'
-        ))
-    
+        if "Unnamed: 0" in weather.columns:
+            weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
+        elif "date" in weather.columns:
+            weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
+
+        # Merge op overlappende dagen
+        weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
+        overlap_days = len(weather_data)
+        st.info(f"📅 Overlappende dagen met echte data: {overlap_days}")
+
+        if overlap_days < 5:
+            st.error("❌ Te weinig overlappende datums tussen weerdata en verhuurdata.")
+            st.stop()
+
+        # Tijdreeks weergave
+        st.subheader("Fietsverhuringen over tijd (echte data)")
+        fig_line = px.line(
+            weather_data,
+            x="date",
+            y="rentals",
+            title="Dagelijkse fietsverhuringen (echte observaties)",
+            labels={"date": "Datum", "rentals": "Aantal verhuringen"},
+            markers=True
+        )
         fig_line.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -246,6 +175,7 @@ with tab3:
         )
         st.plotly_chart(fig_line, use_container_width=True)
 
+        # Correlatie met temperatuur
         st.subheader("Correlatie tussen temperatuur en verhuringen")
         fig_scatter = px.scatter(
             weather_data,
@@ -264,6 +194,10 @@ with tab3:
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
 
+    except Exception as e:
+        st.error(f"Fout bij verwerking van tijdreeksdata: {e}")
+        st.stop()
+
 # ----------------------------------------------------------
 # TAB 4 — MACHINE LEARNING (ALLEEN ECHTE DATA)
 # ----------------------------------------------------------
@@ -271,11 +205,25 @@ with tab4:
     st.header("🔮 Voorspellingen met Echte Data")
 
     try:
+        # Zelfde datumfix voor consistentie
+        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], format="%d/%m/%Y %H:%M", errors="coerce")
+        rentals["date"] = rentals["Start Date"].dt.normalize()
+        rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
+
+        if "Unnamed: 0" in weather.columns:
+            weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
+        elif "date" in weather.columns:
+            weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
+
         weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
-        if len(weather_data) < 10:
+        overlap_days = len(weather_data)
+        st.info(f"📅 Overlappende dagen beschikbaar voor modeltraining: {overlap_days}")
+
+        if overlap_days < 10:
             st.error("❌ Niet genoeg echte data voor modeltraining (minimaal 10 dagen vereist).")
             st.stop()
 
+        # Model trainen
         features = ["tavg", "prcp", "wspd"]
         X = weather_data[features].fillna(0)
         y = weather_data["rentals"]
@@ -293,6 +241,7 @@ with tab4:
         with col2:
             st.metric("R²-score", f"{r2:.2f}")
 
+        # Plot voorspelling vs werkelijk
         fig_pred = px.scatter(
             x=y,
             y=y_pred,
