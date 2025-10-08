@@ -356,7 +356,7 @@ with tab3:
     from sklearn.linear_model import LinearRegression
     import numpy as np
 
-    metropredict = pd.read_csv("https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv")
+    metropredict = pd.read_csv("https://raw.githubusercontent.com/MaxPloeg1/StreamlitCase3/refs/heads/main/London%20tube%20lines.csv")
 
     model = LinearRegression()
     stations = metropredict['name'].unique()
@@ -624,6 +624,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
