@@ -37,7 +37,8 @@ def load_data():
         rentals = pd.read_csv("bike_rentals.csv")
         weather = pd.read_csv("weather_london.csv")
         tube_stations = pd.read_csv('London stations.csv')
-        return stations, rentals, weather, tube_stations
+        tube_lines = pd.read_csv("London tube lines.csv")
+        return stations, rentals, weather, tube_stations, tube_lines
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None, None, None
@@ -45,7 +46,7 @@ def load_data():
 # Load data with error handling
 data_result = load_data()
 if data_result[0] is not None:
-    stations, rentals, weather, tube_stations = data_result
+    stations, rentals, weather, tube_stations, tube_lines = data_result
 else:
     st.error("Failed to load data. Please check that all CSV files are present.")
     st.stop()
@@ -171,8 +172,7 @@ with tab2:
     st.divider()
     st.subheader("🚇 London Metro Kaart")
 
-    tube_stations = load_csv("London stations.csv")
-    tube_lines = load_csv("London tube lines.csv")
+
 
     if tube_stations is None or tube_lines is None:
         st.info("ℹ️ Voeg 'London stations.csv' en 'London tube lines.csv' toe om de metrokaart te tonen.")
@@ -706,6 +706,7 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
 
