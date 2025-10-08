@@ -200,31 +200,31 @@ with tab3:
 
 # ----------------------------------------------------------
 # ----------------------------------------------------------
-# TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING
+# TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ECHTE DATA)
 # ----------------------------------------------------------
 with tab4:
     st.header("Voorspellingen - Fietsverhuringen")
 
     try:
-        # Stap 1: Data voorbereiden (geen simulatie, alleen echte data)
+        # 📅 Datum fixen
         rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], errors='coerce')
         rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
         rentals_per_day.columns = ['date', 'rentals']
         rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
 
         weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
-        weather_data = pd.merge(weather, rentals_per_day, on='date', how='left')
-        weather_data['rentals'] = weather_data['rentals'].fillna(0).astype(int)
 
-        ml_data = weather_data.dropna(subset=["tavg", "rentals"])
+        # 🔁 Gebruik ALLEEN echte data (inner join)
+        ml_data = pd.merge(weather, rentals_per_day, on='date', how='inner')
+        ml_data = ml_data.dropna(subset=["tavg", "rentals"])  # zorg voor complete rijen
 
         if len(ml_data) < 10:
-            st.error("❌ Niet genoeg data voor machine learning (minimaal 10 dagen vereist).")
+            st.error("❌ Niet genoeg overlappende data voor training (minimaal 10 dagen vereist).")
             st.stop()
 
         st.success(f"✅ Modeltraining op {len(ml_data)} dagen met echte data")
 
-        # Stap 2: Modelconfiguratie
+        # 📊 Modelconfiguratie
         st.subheader("Model Configuratie")
 
         col1, col2 = st.columns(2)
@@ -234,37 +234,42 @@ with tab4:
                 ["tavg", "tmin", "tmax", "prcp", "wspd", "pres"],
                 default=["tavg", "prcp"]
             )
-
         with col2:
             model_type = st.selectbox(
                 "Model type:",
-                ["Linear Regression", "Polynomial (degree 2)"]
+                ["Linear Regression", "Random Forest"]
             )
 
         if not features:
-            st.warning("⚠️ Selecteer minimaal één feature om voorspellingen te maken.")
+            st.warning("⚠️ Selecteer minimaal één feature.")
             st.stop()
 
-        # Stap 3: Modeltraining
+        # 📦 Features & target
         X = ml_data[features].fillna(ml_data[features].mean())
-        y = ml_data['rentals']
+        y = ml_data["rentals"]
 
-        if model_type == "Polynomial (degree 2)":
-            from sklearn.preprocessing import PolynomialFeatures
-            poly = PolynomialFeatures(degree=2)
-            X = poly.fit_transform(X)
-            feature_names = [f"poly_{i}" for i in range(X.shape[1])]
-        else:
-            feature_names = features
+        # 📉 Train/test split
+        from sklearn.model_selection import train_test_split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        model = LinearRegression()
-        model.fit(X, y)
+        # ⚙️ Modelkeuze
+        if model_type == "Linear Regression":
+            from sklearn.linear_model import LinearRegression
+            model = LinearRegression()
+        elif model_type == "Random Forest":
+            from sklearn.ensemble import RandomForestRegressor
+            model = RandomForestRegressor(n_estimators=100, random_state=42)
 
-        y_pred = model.predict(X)
-        r2 = r2_score(y, y_pred)
-        mae = mean_absolute_error(y, y_pred)
+        # 🧠 Train
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
 
-        # Stap 4: Resultaten tonen
+        # 📈 Evaluatie
+        from sklearn.metrics import r2_score, mean_absolute_error
+        r2 = r2_score(y_test, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
+
+        # 📊 Metrics tonen
         st.subheader("Model Prestaties")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -274,25 +279,26 @@ with tab4:
         with col3:
             st.metric("Datapunten", f"{len(ml_data)} dagen")
 
-        # Voorspelling vs Werkelijk
+        # 🔍 Voorspelling vs Werkelijk
+        import plotly.graph_objects as go
         fig_pred = go.Figure()
         fig_pred.add_trace(go.Scatter(
-            x=[y.min(), y.max()],
-            y=[y.min(), y.max()],
-            mode='lines',
-            name='Perfecte voorspelling',
-            line=dict(color='red', dash='dash')
-        ))
-        fig_pred.add_trace(go.Scatter(
-            x=y,
+            x=y_test,
             y=y_pred,
             mode='markers',
             name='Voorspellingen',
             marker=dict(color='#FFD700', size=8),
             hovertemplate='Werkelijk: %{x:,.0f}<br>Voorspeld: %{y:,.0f}<extra></extra>'
         ))
+        fig_pred.add_trace(go.Scatter(
+            x=[y_test.min(), y_test.max()],
+            y=[y_test.min(), y_test.max()],
+            mode='lines',
+            name='Perfecte voorspelling',
+            line=dict(color='red', dash='dash')
+        ))
         fig_pred.update_layout(
-            title="Voorspelling vs Werkelijke Waarden",
+            title="Voorspelling vs Werkelijke Waarden (Testset)",
             xaxis_title="Werkelijke Verhuringen",
             yaxis_title="Voorspelde Verhuringen",
             paper_bgcolor="rgba(0,0,0,0)",
@@ -302,18 +308,16 @@ with tab4:
         )
         st.plotly_chart(fig_pred, use_container_width=True)
 
-        # Stap 5: Interactieve voorspelling
+        # 🔮 Interactieve voorspelling
         st.subheader("Interactieve Voorspelling")
-        st.write("Pas de weerparameters aan om nieuwe voorspellingen te maken:")
-
         pred_inputs = {}
         pred_col1, pred_col2 = st.columns(2)
         for i, feature in enumerate(features):
             col = pred_col1 if i % 2 == 0 else pred_col2
             with col:
-                min_val = float(ml_data[feature].min())
-                max_val = float(ml_data[feature].max())
-                mean_val = float(ml_data[feature].mean())
+                min_val = float(X[feature].min())
+                max_val = float(X[feature].max())
+                mean_val = float(X[feature].mean())
                 pred_inputs[feature] = st.slider(
                     f"{feature}:",
                     min_value=min_val,
@@ -324,35 +328,8 @@ with tab4:
 
         if st.button("Voorspel Fietsverhuringen"):
             pred_X = np.array([[pred_inputs[f] for f in features]])
-            if model_type == "Polynomial (degree 2)":
-                pred_X = poly.transform(pred_X)
             prediction = model.predict(pred_X)[0]
             st.success(f"📈 Voorspelde verhuringen: **{prediction:,.0f}**")
 
-            # Feature importance
-            if model_type == "Linear Regression":
-                st.subheader("Feature Importance")
-                importance_df = pd.DataFrame({
-                    'Feature': features,
-                    'Coefficient': model.coef_[:len(features)],
-                    'Abs_Coefficient': np.abs(model.coef_[:len(features)])
-                }).sort_values('Abs_Coefficient', ascending=False)
-
-                fig_importance = px.bar(
-                    importance_df,
-                    x='Feature',
-                    y='Coefficient',
-                    color='Coefficient',
-                    color_continuous_scale='RdBu',
-                    title="Belang van Features (Lineair Model)"
-                )
-                fig_importance.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="white"),
-                    height=400
-                )
-                st.plotly_chart(fig_importance, use_container_width=True)
-
     except Exception as e:
-        st.error(f"❌ Fout bij het verwerken van het voorspellingsmodel: {e}")
+        st.error(f"❌ Fout bij het verwerken van het model: {e}")
