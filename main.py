@@ -189,40 +189,34 @@ with tab2:
 # ----------------------------------------------------------
 # TAB 3 — TIJDREEKS & WEATHER TRENDS (ALLEEN ECHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
+# ----------------------------------------------------------
+# TAB 3 — TIJDREEKS & TRENDS + METROKAART
+# ----------------------------------------------------------
 with tab3:
-    st.header("📈 Tijdreeks Analyse & Weather Trends")
+    st.header("📈 Tijdreeks Analyse & Metrokaart")
 
-    if "tavg" not in weather.columns:
-        st.error("❌ Kolom 'tavg' ontbreekt in weather_london.csv.")
-        st.stop()
+    # Keuzemenu voor weergave
+    view_option = st.radio("📊 Kies visualisatie", ["Fietsverhuur over tijd", "Correlatie met temperatuur", "Metrokaart"], horizontal=True)
 
-    try:
-        # ✅ Datumfix: uniforme datums maken
-        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], format="%d/%m/%Y %H:%M", errors="coerce")
-        rentals["date"] = rentals["Start Date"].dt.normalize()  # alleen datum
-        rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
+    # Voorbereiden data
+    rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], format="%d/%m/%Y %H:%M", errors="coerce")
+    rentals["date"] = rentals["Start Date"].dt.normalize()
+    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
 
-        if "Unnamed: 0" in weather.columns:
-            weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
-        elif "date" in weather.columns:
-            weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
+    if "Unnamed: 0" in weather.columns:
+        weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
+    elif "date" in weather.columns:
+        weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-        # Merge op overlappende dagen
-        weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
-        overlap_days = len(weather_data)
-        st.info(f"📅 Overlappende dagen met echte data: {overlap_days}")
+    weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
 
-        if overlap_days < 5:
-            st.error("❌ Te weinig overlappende datums tussen weerdata en verhuurdata.")
-            st.stop()
-
-        # Tijdreeks weergave
-        st.subheader("Fietsverhuringen over tijd (echte data)")
+    if view_option == "Fietsverhuur over tijd":
+        st.subheader("📆 Dagelijkse fietsverhuringen")
         fig_line = px.line(
             weather_data,
             x="date",
             y="rentals",
-            title="Dagelijkse fietsverhuringen (echte observaties)",
+            title="Dagelijkse fietsverhuringen (observaties)",
             labels={"date": "Datum", "rentals": "Aantal verhuringen"},
             markers=True
         )
@@ -233,8 +227,8 @@ with tab3:
         )
         st.plotly_chart(fig_line, use_container_width=True)
 
-        # Correlatie met temperatuur
-        st.subheader("Correlatie tussen temperatuur en verhuringen")
+    elif view_option == "Correlatie met temperatuur":
+        st.subheader("🌡️ Correlatie tussen temperatuur en verhuringen")
         fig_scatter = px.scatter(
             weather_data,
             x="tavg",
@@ -252,9 +246,70 @@ with tab3:
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
 
-    except Exception as e:
-        st.error(f"Fout bij verwerking van tijdreeksdata: {e}")
-        st.stop()
+    elif view_option == "Metrokaart":
+        st.subheader("🚇 Metrokaart van Londen")
+
+        try:
+            # Laad metrodata
+            stations_df = pd.read_csv("London stations.csv")
+            lines_df = pd.read_csv("London tube lines.csv")
+
+            coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
+
+            tube_colors = {
+                "Bakerloo": "saddlebrown",
+                "Central": "red",
+                "Circle": "gold",
+                "District": "green",
+                "Hammersmith & City": "pink",
+                "Jubilee": "grey",
+                "Metropolitan": "purple",
+                "Northern": "black",
+                "Piccadilly": "blue",
+                "Victoria": "deepskyblue",
+                "Waterloo & City": "turquoise",
+                "DLR": "lime",
+                "Overground": "orange",
+                "Elizabeth": "mediumslateblue"
+            }
+
+            show_stations = st.checkbox("Toon metrostations", value=True)
+            show_lines = st.checkbox("Toon metrolijnen", value=True)
+
+            map_center = [51.5074, -0.1278]
+            metro_map = folium.Map(location=map_center, zoom_start=11, tiles="cartodbpositron")
+
+            if show_lines:
+                for _, row in lines_df.iterrows():
+                    from_station = row["From Station"]
+                    to_station = row["To Station"]
+                    line = row["Tube Line"]
+                    if from_station in coord_dict and to_station in coord_dict:
+                        coords = [
+                            (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
+                            (coord_dict[to_station]["Latitude"], coord_dict[to_station]["Longitude"])
+                        ]
+                        folium.PolyLine(
+                            coords,
+                            color=tube_colors.get(line, "blue"),
+                            weight=3,
+                            tooltip=line
+                        ).add_to(metro_map)
+
+            if show_stations:
+                for station, loc in coord_dict.items():
+                    folium.CircleMarker(
+                        location=[loc["Latitude"], loc["Longitude"]],
+                        radius=4,
+                        color="green",
+                        fill=True,
+                        popup=station
+                    ).add_to(metro_map)
+
+            st_folium(metro_map, width=1000, height=600)
+
+        except Exception as e:
+            st.error(f"Fout bij laden metrokaart: {e}")
 
 # ----------------------------------------------------------
 # ----------------------------------------------------------
@@ -388,3 +443,4 @@ with tab4:
 
     except Exception as e:
         st.error(f"❌ Fout bij modeltraining: {e}")
+
