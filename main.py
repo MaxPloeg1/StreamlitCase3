@@ -85,39 +85,49 @@ with tab1:
 
     st.subheader("📊 Correlatie tussen fietsverhuringen en weersvariabelen")
 
-    # Samenvoegen van data
+    # Data voorbereiden
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.date
     rentals["date"] = pd.to_datetime(rentals["date"])
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
+    # Fietsritten per dag
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
+
+    # Samenvoegen met weerdata
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Alleen numerieke kolommen
-    num_cols = merged.select_dtypes(include=[np.number])
+    # Alleen numerieke kolommen van weerdata (zonder 'rentals')
+    weather_numeric = merged.drop(columns=["rentals", "date"]).select_dtypes(include=[np.number])
 
-    # Correlatiematrix berekenen
-    corr_matrix = num_cols.corr().round(2)
+    # Correlatie berekenen tussen rentals en elke weerkolom
+    corr_with_rentals = weather_numeric.corrwith(merged["rentals"]).round(3)
 
-    # Plotly heatmap - GROTER en beter leesbaar
-    fig_corr = px.imshow(
-        corr_matrix,
-        text_auto=True,
+    # Omzetten naar DataFrame voor Plotly
+    corr_df = corr_with_rentals.reset_index()
+    corr_df.columns = ["Weersvariabele", "Correlatie"]
+
+    # Plot als staafdiagram
+    fig_corr = px.bar(
+        corr_df,
+        x="Weersvariabele",
+        y="Correlatie",
+        color="Correlatie",
         color_continuous_scale="RdBu_r",
-        title="📈 Correlatiematrix: Fietsverhuringen vs. Weersvariabelen",
-        labels=dict(color="Correlatiecoëfficiënt"),
+        title="📈 Correlatie van weerdata met aantal fietsverhuringen",
         template="plotly_dark",
-        width=900,
-        height=700
+        text="Correlatie"
     )
 
-    # Tekst iets groter maken
-    fig_corr.update_traces(textfont_size=14)
+    fig_corr.update_traces(texttemplate="%{text:.2f}", textposition="outside")
     fig_corr.update_layout(
+        width=900,
+        height=600,
         title_font_size=22,
-        margin=dict(l=80, r=80, t=100, b=80)
+        xaxis_title="Weersvariabele",
+        yaxis_title="Correlatiecoëfficiënt",
+        margin=dict(l=60, r=60, t=80, b=60)
     )
 
     st.plotly_chart(fig_corr, use_container_width=True)
