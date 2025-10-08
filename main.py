@@ -101,6 +101,83 @@ with tab1:
     # Samenvoegen met weerdata
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
+    # ...existing code...
+
+    # Add this where you want to display the weather table
+    st.header("🌤️ Weather Overview")
+
+    # Create a more readable weather dataset
+    weather_display = weather.copy()
+    weather_display['date'] = pd.to_datetime(weather_display['date'])
+    weather_display = weather_display.rename(columns={
+        'date': 'Date',
+        'temp': 'Temperature (°C)',
+        'precipitation': 'Precipitation (mm)',
+        'wind': 'Wind Speed (km/h)'
+    })
+
+    # Add day of week
+    weather_display['Day of Week'] = weather_display['Date'].dt.day_name()
+
+    # Calculate daily rental counts
+    daily_rentals = rentals.groupby('Start Date')['Rental Id'].count().reset_index()
+    daily_rentals.columns = ['Date', 'Total Rentals']
+    daily_rentals['Date'] = pd.to_datetime(daily_rentals['Date'])
+
+    # Merge weather with rental counts
+    weather_display = pd.merge(
+        weather_display, 
+        daily_rentals, 
+        on='Date', 
+        how='left'
+    )
+
+    # Format the table
+    weather_display['Date'] = weather_display['Date'].dt.strftime('%Y-%m-%d')
+    weather_display = weather_display.round(2)  # Round numeric columns to 2 decimals
+
+    # Add color coding based on temperature
+    def color_temp(val):
+        if val < 10:
+            return 'background-color: #ADE8F4'  # Cool blue
+        elif val > 20:
+            return 'background-color: #FFADAD'  # Warm red
+        return 'background-color: #E8FFB7'  # Moderate green
+
+    # Display the styled table
+    st.dataframe(
+        weather_display.style\
+            .applymap(color_temp, subset=['Temperature (°C)'])\
+            .background_gradient(cmap='Blues', subset=['Total Rentals'])\
+            .background_gradient(cmap='YlOrRd', subset=['Precipitation (mm)'])\
+            .background_gradient(cmap='YlGnBu', subset=['Wind Speed (km/h)']),
+        use_container_width=True
+    )
+
+    # Add summary statistics
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Average Temperature", 
+            f"{weather_display['Temperature (°C)'].mean():.1f}°C",
+            delta=f"{weather_display['Temperature (°C)'].std():.1f}°C std"
+        )
+
+    with col2:
+        st.metric(
+            "Average Daily Rentals",
+            f"{weather_display['Total Rentals'].mean():.0f}",
+            delta=f"{weather_display['Total Rentals'].std():.0f} std"
+        )
+
+    with col3:
+        st.metric(
+            "Rainy Days",
+            f"{(weather_display['Precipitation (mm)'] > 0).sum()} days",
+            delta=f"{(weather_display['Precipitation (mm)'] > 0).sum() / len(weather_display) * 100:.1f}%"
+        )
+
     # 1️⃣ Temperatuur tegenover verhuringen
     fig_temp = px.scatter(
         merged, x="tavg", y="rentals",
