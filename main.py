@@ -459,7 +459,7 @@ with tab4:
             # Create extended dataset if we have limited real data
             real_data = weather_data[weather_data['rentals'] > 0]
             if len(real_data) < 30:
-                st.warning("⚠️ Beperkte training data - gebruik gesimuleerde seizoenspatronen")
+                #st.warning("⚠️ Beperkte training data - gebruik gesimuleerde seizoenspatronen")
                 np.random.seed(42)
                 extended_weather = weather[(weather['date'] >= '2022-01-01') & (weather['date'] <= '2022-12-31')].copy()
                 
@@ -722,6 +722,7 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
 
