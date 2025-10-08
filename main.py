@@ -61,7 +61,11 @@ bike_col = "nbBikes"
 # TABSTRUCTUUR
 # ----------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Data Exploration", "🚲 Fietsstations & Kaart", "📈 Tijdreeks & Trends", "🔮 Voorspellingen", "🔥 Drukste Routes"
+    "📊 Data Exploration", 
+    "🚲 Fietsstations & Kaart", 
+    "📈 Tijdreeks & Trends", 
+    "🔮 Voorspellingen", 
+    "🔥 Drukste Routes"
 ])
 
 # ----------------------------------------------------------
