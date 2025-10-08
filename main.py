@@ -264,10 +264,6 @@ with tab3:
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
 
-    except Exception as e:
-        st.error(f"Fout bij verwerking van tijdreeksdata: {e}")
-        st.stop()
-
 # ----------------------------------------------------------
 # TAB 4 — MACHINE LEARNING (ALLEEN ECHTE DATA)
 # ----------------------------------------------------------
