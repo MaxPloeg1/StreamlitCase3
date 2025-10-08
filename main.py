@@ -83,6 +83,36 @@ with tab1:
         st.subheader("🌦️ weather_london.csv")
         st.dataframe(weather.head(), use_container_width=True)
 
+    st.subheader("🌡️ Relatie tussen temperatuur en fietsverhuringen")
+
+    fig = px.scatter(
+        merged,
+        x="tavg",
+        y="rentals",
+        color="tavg",
+        color_continuous_scale="sunset",
+        title="Temperatuur vs. Fietsverhuringen",
+        labels={"tavg": "Gemiddelde temperatuur (°C)", "rentals": "Aantal verhuringen"},
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("📅 Gemiddeld aantal verhuringen per maand")
+
+    monthly_avg = merged.groupby("month")["rentals"].mean().reset_index()
+    fig = px.bar(
+        monthly_avg,
+        x="month",
+        y="rentals",
+        title="Gemiddeld aantal verhuringen per maand",
+        labels={"month": "Maand", "rentals": "Gemiddeld aantal verhuringen"},
+        template="plotly_dark",
+        color="rentals",
+        color_continuous_scale="Viridis"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
