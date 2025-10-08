@@ -36,7 +36,8 @@ def load_data():
         stations = pd.read_csv("cycle_stations.csv")
         rentals = pd.read_csv("bike_rentals.csv")
         weather = pd.read_csv("weather_london.csv")
-        return stations, rentals, weather
+        tube_stations = pd.read_csv('London stations.csv')
+        return stations, rentals, weather, tube_stations
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None, None, None
@@ -705,6 +706,7 @@ with tab4:
             
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
+
 
 
 
