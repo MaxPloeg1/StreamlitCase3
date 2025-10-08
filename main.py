@@ -333,3 +333,20 @@ with tab4:
 
     except Exception as e:
         st.error(f"❌ Fout bij het verwerken van het model: {e}")
+
+# Fix de datums
+rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], errors='coerce')
+rentals['date'] = rentals['Start Date'].dt.normalize()
+weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce').dt.normalize()
+
+# Bereken verhuur per dag
+rentals_per_day = rentals.groupby('date').size().reset_index(name='rentals')
+
+# Merge met echte data
+ml_data = pd.merge(weather, rentals_per_day, on='date', how='inner')
+
+# Toon aantal overlappende dagen
+st.info(f"🗓️ Overlappende dagen gevonden: **{len(ml_data)}**")
+
+# Toon voorbeelddata
+st.dataframe(ml_data[['date', 'tavg', 'rentals']].head(10))
