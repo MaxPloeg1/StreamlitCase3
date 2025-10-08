@@ -269,23 +269,20 @@ with tab2:
 # ----------------------------------------------------------
 
 
-# TAB 3 — TIJDREEKS & TRENDS + METROKAART
-# ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
 
-    # Alleen metrokaart optie
+    # ----------------------------------------------------------
+    # 🚇 METROKAART
+    # ----------------------------------------------------------
     st.subheader("🚇 Metrokaart van Londen")
 
     try:
-        # Laad metrodata
         stations_df = pd.read_csv("London stations.csv")
         lines_df = pd.read_csv("https://raw.githubusercontent.com/MaxPloeg1/StreamlitCase3/refs/heads/main/London%20tube%20lines.csv")
 
-        # Station coördinaten
         coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
 
-        # 📌 Definieer lijnkleuren
         tube_colors = {
             "Bakerloo": "saddlebrown",
             "Central": "red",
@@ -314,9 +311,6 @@ with tab3:
                 from_station = row["From Station"]
                 to_station = row["To Station"]
                 line = row["Tube Line"]
-                # Colour for this line
-                color = tube_colors.get(line, "blue")
-
                 if from_station in coord_dict and to_station in coord_dict:
                     coords = [
                         (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
@@ -324,7 +318,7 @@ with tab3:
                     ]
                     folium.PolyLine(
                         coords,
-                        color=color,
+                        color=tube_colors.get(line, "blue"),
                         weight=3,
                         tooltip=line
                     ).add_to(metro_map)
@@ -345,9 +339,8 @@ with tab3:
         st.error(f"Fout bij laden metrokaart: {e}")
 
     # ----------------------------------------------------------
-    # 🔮 METRO VOORSPELLINGSGRAFIEK
+    # 📈 METRO VOORSPELLINGSGRAFIEK
     # ----------------------------------------------------------
-
     st.markdown("---")
     st.markdown("## 📊 Metro voorspelling")
 
@@ -363,23 +356,8 @@ with tab3:
     from sklearn.linear_model import LinearRegression
     import numpy as np
 
-    # Metrovoorspellingsdata
-    metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
+    metropredict = pd.read_csv("https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv")
 
-    # Maak mapping van station naar lijnkleur, op basis van line in metropredict + tube_colors
-    station_to_color = {}
-    if "Line" in metropredict.columns:
-        for _, row in metropredict.iterrows():
-            station = row['name']
-            lijn = str(row['Line']).replace(" Line", "").strip()
-            kleur = tube_colors.get(lijn, "#999999")
-            station_to_color[station] = kleur
-    else:
-        # fallback: gebruik een default kleur
-        for station in metropredict['name'].unique():
-            station_to_color[station] = "#999999"
-
-    # Model en stations
     model = LinearRegression()
     stations = metropredict['name'].unique()
 
@@ -389,12 +367,19 @@ with tab3:
         data = metropredict[metropredict['name'] == station]
         X = data['Jaar'].values.reshape(-1, 1)
         y = data['Passagiers'].values
-
         model.fit(X, y)
         X_future = np.arange(2022, 2027).reshape(-1, 1)
         y_pred = model.predict(X_future)
 
-        color = station_to_color.get(station, "#999999")
+        # Haal de juiste metrolijn op en bijbehorende kleur
+        if "lijn" in data.columns:
+            lijn = str(data["lijn"].values[0]).replace(" Line", "").strip()
+        elif "Line" in data.columns:
+            lijn = str(data["Line"].values[0]).replace(" Line", "").strip()
+        else:
+            lijn = "Unknown"
+
+        color = tube_colors.get(lijn, "#999999")
 
         # Historische data
         fig.add_trace(go.Scatter(
@@ -422,7 +407,10 @@ with tab3:
         plot_bgcolor='rgba(255, 255, 255, 0.3)',
         paper_bgcolor='rgba(255, 255, 255, 0.2)',
         font=dict(color='#003082'),
-        legend=dict(orientation="v", bgcolor='rgba(255,255,255,0.7)')
+        legend=dict(
+            orientation="v",
+            bgcolor='rgba(255,255,255,0.7)'
+        )
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -636,6 +624,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
