@@ -454,83 +454,76 @@ with tab4:
 with tab5:
     st.header("🔥 Drukste Routes & Gebieden")
     
-    # Bereken de drukste routes
-    route_counts = rentals.groupby(["StartStation Id", "EndStation Id", "StartStation Name", "EndStation Name"]).size().reset_index(name="trips")
-    top_routes = route_counts.nlargest(10, "trips")
-
-    # Voeg coördinaten toe aan stations
-    stations_dict = stations.set_index("id")[["lat", "lon", "name"]].to_dict("index")
-    
-    # Maak een basis kaart
-    center_lat = stations["lat"].mean()
-    center_lon = stations["lon"].mean()
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=12)
-
-    # Voeg de drukste stations toe (grote cirkels)
-    station_usage = pd.concat([
-        rentals["StartStation Id"].value_counts(),
-        rentals["EndStation Id"].value_counts()
-    ]).groupby(level=0).sum().sort_values(ascending=False)
-
-    for station_id, count in station_usage.head(15).items():
-        try:
-            station = stations_dict[int(station_id)]
-            folium.CircleMarker(
-                location=[station["lat"], station["lon"]],
-                radius=min(20, count/1000),  # Schaal de grootte
-                popup=f"{station['name']}<br>Totaal gebruik: {count} keer",
-                color="red",
-                fill=True,
-                fill_color="red"
-            ).add_to(m)
-        except:
-            continue
-
-    # Teken lijnen voor de drukste routes
-    for _, route in top_routes.iterrows():
-        try:
-            start_station = stations_dict[int(route["StartStation Id"])]
-            end_station = stations_dict[int(route["EndStation Id"])]
+    try:
+        # Test if we can access the data
+        st.write("Analyzing routes...")
+        
+        # Bereken de drukste routes
+        route_counts = rentals.groupby(
+            ["StartStation Id", "EndStation Id", "StartStation Name", "EndStation Name"]
+        ).size().reset_index(name="trips")
+        
+        # Get top 10 routes
+        top_routes = route_counts.nlargest(10, "trips")
+        
+        # Show basic table first
+        st.subheader("Top 10 Drukste Routes")
+        st.dataframe(top_routes[["StartStation Name", "EndStation Name", "trips"]])
+        
+        # Create map
+        st.subheader("Kaart van Drukste Routes")
+        
+        # Get station coordinates
+        if "id" not in stations.columns:
+            stations["id"] = stations.index
+        stations_dict = stations.set_index("id")[["lat", "lon", "name"]].to_dict("index")
+        
+        # Create base map
+        center_lat = stations["lat"].mean()
+        center_lon = stations["lon"].mean()
+        m = folium.Map(location=[center_lat, center_lon], zoom_start=12)
+        
+        # Add busiest routes
+        for _, route in top_routes.iterrows():
+            try:
+                start_id = int(route["StartStation Id"])
+                end_id = int(route["EndStation Id"])
+                
+                if start_id in stations_dict and end_id in stations_dict:
+                    start = stations_dict[start_id]
+                    end = stations_dict[end_id]
+                    
+                    # Draw line between stations
+                    folium.PolyLine(
+                        locations=[
+                            [start["lat"], start["lon"]],
+                            [end["lat"], end["lon"]]
+                        ],
+                        color="blue",
+                        weight=3,
+                        popup=f"{route['StartStation Name']} → {route['EndStation Name']}: {route['trips']} trips"
+                    ).add_to(m)
+                    
+                    # Mark stations
+                    for station in [start, end]:
+                        folium.CircleMarker(
+                            location=[station["lat"], station["lon"]],
+                            radius=8,
+                            color="red",
+                            fill=True,
+                            popup=station["name"]
+                        ).add_to(m)
             
-            # Teken een lijn tussen start en eind
-            folium.PolyLine(
-                locations=[
-                    [start_station["lat"], start_station["lon"]],
-                    [end_station["lat"], end_station["lon"]]
-                ],
-                weight=2 + (route["trips"] / top_routes["trips"].max() * 8),  # Lijndikte op basis van gebruik
-                color="blue",
-                popup=f"{route['StartStation Name']} → {route['EndStation Name']}<br>{route['trips']} ritten"
-            ).add_to(m)
-        except:
-            continue
-
-    # Toon de kaart
-    st_folium(m, width=1000, height=600)
-
-    # Toon tabel met top routes
-    st.subheader("Top 10 Drukste Routes")
-    formatted_routes = top_routes[["StartStation Name", "EndStation Name", "trips"]].copy()
-    formatted_routes.columns = ["Van Station", "Naar Station", "Aantal Ritten"]
-    st.dataframe(formatted_routes, use_container_width=True)
-
-    # Toon statistieken
-    st.subheader("📊 Station Statistieken")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("##### 🔝 Top 5 Vertrekstations")
-        top_starts = rentals["StartStation Name"].value_counts().head()
-        st.dataframe(pd.DataFrame({
-            "Station": top_starts.index,
-            "Vertrekkende Ritten": top_starts.values
-        }))
-    
-    with col2:
-        st.markdown("##### 🎯 Top 5 Aankomststations")
-        top_ends = rentals["EndStation Name"].value_counts().head()
-        st.dataframe(pd.DataFrame({
-            "Station": top_ends.index,
-            "Aankomende Ritten": top_ends.values
-        }))
+            except Exception as e:
+                st.error(f"Error plotting route: {e}")
+                continue
+        
+        # Display the map
+        st_folium(m, width=800, height=600)
+        
+    except Exception as e:
+        st.error(f"Error in tab 5: {e}")
+        st.write("Debug info:")
+        st.write("Rentals columns:", rentals.columns.tolist())
+        st.write("Stations columns:", stations.columns.tolist())
 
