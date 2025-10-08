@@ -175,93 +175,93 @@ with tab3:
     st.header("Tijdreeks Analyse & Weather Trends")
 
 
-        # Sidebar controls voor analyses
-        st.sidebar.subheader("Analyse Instellingen")
+    # Sidebar controls voor analyses
+    st.sidebar.subheader("Analyse Instellingen")
+    
+    # Prepareer echte rental data - simpel en direct
+    try:
+        # Extract date from rental Start Date and count rentals per day
+        rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], format='%d/%m/%Y %H:%M', errors='coerce')
+        rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
+        rentals_per_day.columns = ['date', 'rentals']
+        rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
         
-        # Prepareer echte rental data - simpel en direct
-        try:
-            # Extract date from rental Start Date and count rentals per day
-            rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], format='%d/%m/%Y %H:%M', errors='coerce')
-            rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
-            rentals_per_day.columns = ['date', 'rentals']
-            rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
+        # Add date column to weather data
+        weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
+        
+        # Merge weather with rental counts
+        weather_data = weather.merge(rentals_per_day, on='date', how='left')
+        weather_data['rentals'] = weather_data['rentals'].fillna(0)
+        
+        # Filter to only days with rentals
+        real_data = weather_data[weather_data['rentals'] > 0].copy()
+        
+        if len(real_data) > 0:
+            st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
+            st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
             
-            # Add date column to weather data
-            weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
-            
-            # Merge weather with rental counts
-            weather_data = weather.merge(rentals_per_day, on='date', how='left')
-            weather_data['rentals'] = weather_data['rentals'].fillna(0)
-            
-            # Filter to only days with rentals
-            real_data = weather_data[weather_data['rentals'] > 0].copy()
-            
-            if len(real_data) > 0:
-                st.info(f"⚠️ Beperkte dataset: {len(real_data)} dagen echte data (31 aug - 6 sept 2022)")
-                st.success(f"Gemiddeld {real_data['rentals'].mean():.0f} verhuur per dag")
-                
-                # Extend data with seasonal patterns
-                st.sidebar.checkbox("Uitbreiden met seizoenspatronen", value=True, key="extend_data")
-                if st.session_state.extend_data:
-                    # Create extended dataset based on patterns
-                    np.random.seed(42)
-                    extended_weather = weather[(weather['date'] >= '2022-01-01') & (weather['date'] <= '2022-12-31')].copy()
-                    
-                    # Simulate rental patterns based on temperature and season
-                    base_rentals = 35000  # Based on real average
-                    temp_effect = (extended_weather['tavg'].fillna(15) - 15) * 500  # Temperature effect
-                    season_effect = np.sin((extended_weather['date'].dt.dayofyear - 80) * 2 * np.pi / 365) * 10000  # Seasonal pattern
-                    random_noise = np.random.normal(0, 3000, len(extended_weather))
-                    
-                    extended_weather['rentals'] = np.maximum(0, 
-                        base_rentals + temp_effect + season_effect + random_noise
-                    ).astype(int)
-                    
-                    # Replace real data where available
-                    for _, row in real_data.iterrows():
-                        mask = extended_weather['date'] == row['date']
-                        extended_weather.loc[mask, 'rentals'] = row['rentals']
-                    
-                    weather_data = extended_weather
-                    st.info(f"📈 Dataset uitgebreid naar {len(weather_data)} dagen (heel 2022)")
-                else:
-                    weather_data = real_data
-                    
-            else:
-                st.warning("Geen overlappende datums. Gebruik gesimuleerde data.")
+            # Extend data with seasonal patterns
+            st.sidebar.checkbox("Uitbreiden met seizoenspatronen", value=True, key="extend_data")
+            if st.session_state.extend_data:
+                # Create extended dataset based on patterns
                 np.random.seed(42)
-                weather_data = weather.copy()
-                weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
+                extended_weather = weather[(weather['date'] >= '2022-01-01') & (weather['date'] <= '2022-12-31')].copy()
                 
-        except Exception as e:
-            st.warning(f"Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
+                # Simulate rental patterns based on temperature and season
+                base_rentals = 35000  # Based on real average
+                temp_effect = (extended_weather['tavg'].fillna(15) - 15) * 500  # Temperature effect
+                season_effect = np.sin((extended_weather['date'].dt.dayofyear - 80) * 2 * np.pi / 365) * 10000  # Seasonal pattern
+                random_noise = np.random.normal(0, 3000, len(extended_weather))
+                
+                extended_weather['rentals'] = np.maximum(0, 
+                    base_rentals + temp_effect + season_effect + random_noise
+                ).astype(int)
+                
+                # Replace real data where available
+                for _, row in real_data.iterrows():
+                    mask = extended_weather['date'] == row['date']
+                    extended_weather.loc[mask, 'rentals'] = row['rentals']
+                
+                weather_data = extended_weather
+                st.info(f"📈 Dataset uitgebreid naar {len(weather_data)} dagen (heel 2022)")
+            else:
+                weather_data = real_data
+                
+        else:
+            st.warning("Geen overlappende datums. Gebruik gesimuleerde data.")
             np.random.seed(42)
             weather_data = weather.copy()
             weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
-
-        # Interactieve tijdreeks
-        st.subheader("Interactieve Tijdreeks - Fietsverhuringen over Tijd")
-        
-        # Date range selector
-        if len(weather_data) > 30:
-            date_range = st.sidebar.date_input(
-                "Selecteer datumbereik:",
-                value=(weather_data['date'].min(), weather_data['date'].max()),
-                min_value=weather_data['date'].min(),
-                max_value=weather_data['date'].max()
-            )
             
-            if len(date_range) == 2:
-                start_date, end_date = date_range
-                filtered_data = weather_data[
-                    (weather_data['date'] >= pd.to_datetime(start_date)) & 
-                    (weather_data['date'] <= pd.to_datetime(end_date))
-                ]
-            else:
-                filtered_data = weather_data
+    except Exception as e:
+        st.warning(f"Fout bij data verwerking: {e}. Gebruik gesimuleerde data.")
+        np.random.seed(42)
+        weather_data = weather.copy()
+        weather_data["rentals"] = np.random.randint(5000, 55000, size=len(weather_data))
+
+    # Interactieve tijdreeks
+    st.subheader("Interactieve Tijdreeks - Fietsverhuringen over Tijd")
+    
+    # Date range selector
+    if len(weather_data) > 30:
+        date_range = st.sidebar.date_input(
+            "Selecteer datumbereik:",
+            value=(weather_data['date'].min(), weather_data['date'].max()),
+            min_value=weather_data['date'].min(),
+            max_value=weather_data['date'].max()
+        )
+        
+        if len(date_range) == 2:
+            start_date, end_date = date_range
+            filtered_data = weather_data[
+                (weather_data['date'] >= pd.to_datetime(start_date)) & 
+                (weather_data['date'] <= pd.to_datetime(end_date))
+            ]
         else:
             filtered_data = weather_data
-            
+    else:
+        filtered_data = weather_data
+        
         # Plotly interactieve lijndiagram
         fig_line = go.Figure()
         
@@ -364,11 +364,6 @@ with tab3:
         
         st.plotly_chart(fig_heatmap, use_container_width=True)
 
-    else:
-        st.error("❌ 'tavg' kolom niet gevonden in weather_london.csv.")
-        st.write("Beschikbare kolommen:", list(weather.columns))
-
-
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING
 # ----------------------------------------------------------
@@ -378,8 +373,8 @@ with tab4:
     if "tavg" in weather.columns:
         st.success("Machine Learning Voorspellingsmodellen")
 
-            if "tavg" in weather.columns:
-        st.success("✅ Weerdata succesvol geladen!")
+        if "tavg" in weather.columns:
+            st.success("✅ Weerdata succesvol geladen!")
         
         # Use the same weather_data from tab3
         try:
