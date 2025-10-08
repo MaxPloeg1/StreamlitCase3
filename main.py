@@ -654,63 +654,6 @@ with tab4:
     else:
         st.error("Geen weather data beschikbaar voor voorspellingen")
 
-# ───────────────────────────────────────────────
-# 5) METRO MAP — met filters
-# ───────────────────────────────────────────────
-with tab_maps:
-    st.header("🚇 London Metro Visualisatie")
 
-    # Data laden
-    tube_stations = load_csv("London stations.csv")
-    tube_lines = load_csv("London tube lines.csv")
 
-    if tube_stations is None or tube_lines is None:
-        st.error("❌ Vereiste bestanden 'London stations.csv' en/of 'London tube lines.csv' ontbreken.")
-    else:
-        # Kolomnamen standaardiseren
-        tube_stations.columns = tube_stations.columns.str.strip().str.lower()
-        tube_lines.columns = tube_lines.columns.str.strip().str.lower()
-
-        # Voeg testdata toe als bezoekersaantal ontbreekt
-        if "entries" not in tube_stations.columns:
-            rng = np.random.default_rng(42)
-            tube_stations["entries"] = rng.integers(1000, 50000, len(tube_stations))
-
-        # Filteropties in een uitklapbaar menu
-        with st.expander("⚙️ Metro Filteropties", expanded=True):
-            day_type = st.radio("Toon data voor", ["Weekdagen", "Weekend"], index=0)
-            density = st.slider("Selecteer drukte", 0, 100, 0)
-            st.write(f"Geselecteerde drukte: **{density}%**")
-
-            show_stations = st.checkbox("Metro stations en bezoekersaantal", value=True)
-            show_lines = st.checkbox("Metro lijnen", value=True)
-
-        # Maak basiskaart
-        m = folium.Map(location=[51.5074, -0.1278], zoom_start=10, tiles="CartoDB positron")
-
-        # Teken metrolijnen
-        if show_lines:
-            for line, seg in tube_lines.groupby("line"):
-                coords = seg[["lat", "lon"]].dropna().values.tolist()
-                color = f"#{abs(hash(line)) % 0xFFFFFF:06x}"
-                folium.PolyLine(coords, color=color, weight=3, opacity=0.85, popup=f"Lijn: {line}").add_to(m)
-
-        # Teken stations met cirkels afhankelijk van drukte
-        if show_stations:
-            for _, row in tube_stations.iterrows():
-                visitors = int(row["entries"])
-                # filter op slider
-                if visitors < density * 500:
-                    continue
-                color = "red" if day_type == "Weekdagen" else "blue"
-                folium.CircleMarker(
-                    [row["lat"], row["lon"]],
-                    radius=max(2, min(visitors / 8000, 10)),
-                    color=color,
-                    fill=True,
-                    fill_opacity=0.8,
-                    popup=f"{row['name']}<br>Bezoekers: {visitors:,}"
-                ).add_to(m)
-
-        st_folium(m, width=1100, height=600)
 
