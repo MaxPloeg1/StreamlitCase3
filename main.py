@@ -95,21 +95,31 @@ with tab1:
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Selecteer alleen numerieke kolommen
+    # Alleen numerieke kolommen
     num_cols = merged.select_dtypes(include=[np.number])
 
-    # Correlatie berekenen
-    corr_matrix = num_cols.corr()
+    # Correlatiematrix berekenen
+    corr_matrix = num_cols.corr().round(2)
 
-    # Plotly heatmap
+    # Plotly heatmap - GROTER en beter leesbaar
     fig_corr = px.imshow(
         corr_matrix,
         text_auto=True,
         color_continuous_scale="RdBu_r",
         title="📈 Correlatiematrix: Fietsverhuringen vs. Weersvariabelen",
         labels=dict(color="Correlatiecoëfficiënt"),
-        template="plotly_dark"
+        template="plotly_dark",
+        width=900,
+        height=700
     )
+
+    # Tekst iets groter maken
+    fig_corr.update_traces(textfont_size=14)
+    fig_corr.update_layout(
+        title_font_size=22,
+        margin=dict(l=80, r=80, t=100, b=80)
+    )
+
     st.plotly_chart(fig_corr, use_container_width=True)
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
