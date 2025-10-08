@@ -267,7 +267,7 @@ with tab2:
 
 
 # ----------------------------------------------------------
- TAB 3 — TIJDREEKS & TRENDS + METROKAART
+#TAB 3 — TIJDREEKS & TRENDS + METROKAART
 # ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
@@ -387,10 +387,11 @@ with tab3:
 
         except Exception as e:
             st.error(f"Fout bij laden metrokaart: {e}")
-voeg de grafiek toe in deze code en haal deze 2 
-Fietsverhuur over tijd
 
-Correlatie met temperatuur weg
+#voeg de grafiek toe in deze code en haal deze 2 
+#Fietsverhuur over tijd
+
+#Correlatie met temperatuur weg
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
