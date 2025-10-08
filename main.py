@@ -96,26 +96,27 @@ with tab1:
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
 with tab2:
-    st.header("Interactieve Fietsstations Kaart")
 
-    # Sidebar controls voor kaart
-    st.sidebar.subheader("🎛️ Kaart Instellingen")
-    
-    # Kleurcode opties
-    color_option = st.sidebar.selectbox(
+        # Hoofdsectie - Kaartinstellingen
+    st.subheader("🎛️ Kaart Instellingen")
+
+    # Kleurcode-opties
+    color_option = st.selectbox(
         "Kleurcode gebaseerd op:",
         ["nbBikes", "nbEmptyDocks", "nbDocks", "Locatie (lat/lon)"]
     )
-    
+
     # Bike count filter
-    min_bikes = st.sidebar.slider("Minimum aantal fietsen:", 0, int(stations['nbBikes'].max()), 0)
-    max_bikes = st.sidebar.slider("Maximum aantal fietsen:", 0, int(stations['nbBikes'].max()), int(stations['nbBikes'].max()))
-    
+    min_bikes = st.slider("Minimum aantal fietsen:", 0, int(stations['nbBikes'].max()), 0)
+    max_bikes = st.slider("Maximum aantal fietsen:", 0, int(stations['nbBikes'].max()), int(stations['nbBikes'].max()))
+
+    st.header("Interactieve Fietsstations Kaart")
     # Filter stations
     filtered_stations = stations[
         (stations['nbBikes'] >= min_bikes) & 
         (stations['nbBikes'] <= max_bikes)
     ]
+
 
     # Controle of kolommen bestaan
     if lat_col in stations.columns and lon_col in stations.columns:
