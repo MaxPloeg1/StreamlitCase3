@@ -106,72 +106,34 @@ with tab1:
 
     weather = pd.read_csv("weather_london.csv", index_col=0)
 
-    # Gemiddelde temperatuur door de tijd
-    st.subheader("Gemiddelde temperatuur per dag")
-    fig, ax = plt.subplots()
-    weather["tavg"].plot(ax=ax, color="tomato")
-    ax.set_ylabel("Gemiddelde Temp (°C)")
-    ax.set_xlabel("Datum")
-    st.pyplot(fig)
+    weather.index = pd.to_datetime(weather.index)
 
-    # Neerslag door de tijd
-    st.subheader("Neerslag per dag")
-    fig, ax = plt.subplots()
-    weather["prcp"].fillna(0).plot(ax=ax, color="royalblue")
-    ax.set_ylabel("Neerslag (mm)")
-    ax.set_xlabel("Datum")
-    st.pyplot(fig)
+    st.header("🌡️ Temperatuur vs Windsnelheid")
 
-    # Windsnelheid door de tijd
-    st.subheader("Windsnelheid per dag")
+    # Selecteer datumbereik met slider
+    min_date = weather.index.min()
+    max_date = weather.index.max()
+    date_range = st.slider(
+        "Selecteer datumbereik",
+        min_value=min_date,
+        max_value=max_date,
+        value=(min_date, max_date),
+        format="YYYY-MM-DD"
+    )
+
+    # Filter de data
+    filtered = weather.loc[date_range[0]:date_range[1]]
+
+    # Plot
     fig, ax = plt.subplots()
-    weather["wspd"].fillna(0).plot(ax=ax, color="seagreen")
+    ax.scatter(filtered["tavg"], filtered["wspd"], color="teal", alpha=0.7)
+    ax.set_xlabel("Gemiddelde temperatuur (°C)")
     ax.set_ylabel("Windsnelheid (m/s)")
-    ax.set_xlabel("Datum")
+    ax.set_title("Temperatuur vs Windsnelheid")
+
     st.pyplot(fig)
 
-    # 1️⃣ Temperatuur tegenover verhuringen
-    fig_temp = px.scatter(
-        merged, x="tavg", y="rentals",
-        color="tavg", color_continuous_scale="sunset",
-        title="🌡️ Gemiddelde temperatuur vs. fietsverhuringen",
-        labels={"tavg": "Gemiddelde temperatuur (°C)", "rentals": "Aantal verhuringen"},
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig_temp, use_container_width=True)
 
-    # 2️⃣ Neerslag tegenover verhuringen
-    fig_rain = px.scatter(
-        merged, x="prcp", y="rentals",
-        color="prcp", color_continuous_scale="Blues",
-        title="☔ Neerslag vs. fietsverhuringen",
-        labels={"prcp": "Neerslag (mm)", "rentals": "Aantal verhuringen"},
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig_rain, use_container_width=True)
-
-    # 3️⃣ Maximum temperatuur tegenover verhuringen
-    if "tmax" in merged.columns:
-        fig_tmax = px.scatter(
-            merged, x="tmax", y="rentals",
-            color="tmax", color_continuous_scale="OrRd",
-            title="🔥 Maximum temperatuur vs. fietsverhuringen",
-            labels={"tmax": "Maximale temperatuur (°C)", "rentals": "Aantal verhuringen"},
-            template="plotly_dark"
-        )
-        st.plotly_chart(fig_tmax, use_container_width=True)
-
-    # 4️⃣ Windsnelheid tegenover verhuringen (indien aanwezig)
-    for wind_col in ["awnd", "wspd"]:
-        if wind_col in merged.columns:
-            fig_wind = px.scatter(
-                merged, x=wind_col, y="rentals",
-                color=wind_col, color_continuous_scale="PuBuGn",
-                title=f"💨 Windsnelheid ({wind_col}) vs. fietsverhuringen",
-                labels={wind_col: "Gemiddelde windsnelheid (m/s)", "rentals": "Aantal verhuringen"},
-                template="plotly_dark"
-            )
-            st.plotly_chart(fig_wind, use_container_width=True)
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
