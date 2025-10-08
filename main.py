@@ -200,31 +200,51 @@ with tab3:
 
 # ----------------------------------------------------------
 # ----------------------------------------------------------
-# TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ECHTE DATA)
+# TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
 with tab4:
     st.header("Voorspellingen - Fietsverhuringen")
 
     try:
-        # 📅 Datum fixen
+        # ---------------------------
+        # 🗓️ DATUMFIX — Consistente datums
+        # ---------------------------
         rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], errors='coerce')
-        rentals_per_day = rentals['Start Date'].dt.date.value_counts().reset_index()
-        rentals_per_day.columns = ['date', 'rentals']
-        rentals_per_day['date'] = pd.to_datetime(rentals_per_day['date'])
+        rentals['date'] = rentals['Start Date'].dt.normalize()  # normaliseer: tijd → 00:00:00
 
-        weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce')
+        # bereken aantal verhuringen per dag
+        rentals_per_day = (
+            rentals.groupby('date')
+            .size()
+            .reset_index(name='rentals')
+        )
 
-        # 🔁 Gebruik ALLEEN echte data (inner join)
-        ml_data = pd.merge(weather, rentals_per_day, on='date', how='inner')
-        ml_data = ml_data.dropna(subset=["tavg", "rentals"])  # zorg voor complete rijen
-
-        if len(ml_data) < 10:
-            st.error("❌ Niet genoeg overlappende data voor training (minimaal 10 dagen vereist).")
+        # Weather data datum fix
+        if 'Unnamed: 0' in weather.columns:
+            weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce').dt.normalize()
+        elif 'date' in weather.columns:
+            weather['date'] = pd.to_datetime(weather['date'], errors='coerce').dt.normalize()
+        else:
+            st.error("❌ Geen geldige datumkolom gevonden in weather_london.csv.")
             st.stop()
 
-        st.success(f"✅ Modeltraining op {len(ml_data)} dagen met echte data")
+        # ---------------------------
+        # 🔁 Merge alleen overlappende datums (ECHTE DATA)
+        # ---------------------------
+        ml_data = pd.merge(weather, rentals_per_day, on='date', how='inner')
 
+        # Check op overlap
+        overlap_days = len(ml_data)
+        if overlap_days < 10:
+            st.error(f"❌ Niet genoeg overlappende data voor training ({overlap_days} dagen gevonden, minimaal 10 vereist).")
+            st.dataframe(ml_data[['date', 'tavg', 'rentals']].head(10))
+            st.stop()
+
+        st.success(f"✅ Modeltraining op {overlap_days} dagen met echte data")
+
+        # ---------------------------
         # 📊 Modelconfiguratie
+        # ---------------------------
         st.subheader("Model Configuratie")
 
         col1, col2 = st.columns(2)
@@ -244,43 +264,54 @@ with tab4:
             st.warning("⚠️ Selecteer minimaal één feature.")
             st.stop()
 
-        # 📦 Features & target
-        X = ml_data[features].fillna(ml_data[features].mean())
-        y = ml_data["rentals"]
-
-        # 📉 Train/test split
+        # ---------------------------
+        # 🧠 Modelvoorbereiding
+        # ---------------------------
         from sklearn.model_selection import train_test_split
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        from sklearn.metrics import r2_score, mean_absolute_error
 
-        # ⚙️ Modelkeuze
+        X = ml_data[features].fillna(ml_data[features].mean())
+        y = ml_data['rentals']
+
+        # Train/test split
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # ---------------------------
+        # 🤖 Modelkeuze
+        # ---------------------------
         if model_type == "Linear Regression":
             from sklearn.linear_model import LinearRegression
             model = LinearRegression()
-        elif model_type == "Random Forest":
+        else:
             from sklearn.ensemble import RandomForestRegressor
             model = RandomForestRegressor(n_estimators=100, random_state=42)
 
-        # 🧠 Train
+        # Train model
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 
-        # 📈 Evaluatie
-        from sklearn.metrics import r2_score, mean_absolute_error
+        # ---------------------------
+        # 📈 Model prestaties
+        # ---------------------------
         r2 = r2_score(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
 
-        # 📊 Metrics tonen
         st.subheader("Model Prestaties")
-        col1, col2, col3 = st.columns(3)
-        with col1:
+        c1, c2, c3 = st.columns(3)
+        with c1:
             st.metric("R² Score", f"{r2:.3f}")
-        with col2:
+        with c2:
             st.metric("Mean Absolute Error", f"{mae:,.0f}")
-        with col3:
-            st.metric("Datapunten", f"{len(ml_data)} dagen")
+        with c3:
+            st.metric("Datapunten", f"{overlap_days} dagen")
 
-        # 🔍 Voorspelling vs Werkelijk
+        # ---------------------------
+        # 📊 Voorspelling vs Werkelijk
+        # ---------------------------
         import plotly.graph_objects as go
+
         fig_pred = go.Figure()
         fig_pred.add_trace(go.Scatter(
             x=y_test,
@@ -308,12 +339,14 @@ with tab4:
         )
         st.plotly_chart(fig_pred, use_container_width=True)
 
+        # ---------------------------
         # 🔮 Interactieve voorspelling
+        # ---------------------------
         st.subheader("Interactieve Voorspelling")
         pred_inputs = {}
-        pred_col1, pred_col2 = st.columns(2)
+        col_a, col_b = st.columns(2)
         for i, feature in enumerate(features):
-            col = pred_col1 if i % 2 == 0 else pred_col2
+            col = col_a if i % 2 == 0 else col_b
             with col:
                 min_val = float(X[feature].min())
                 max_val = float(X[feature].max())
@@ -334,19 +367,3 @@ with tab4:
     except Exception as e:
         st.error(f"❌ Fout bij het verwerken van het model: {e}")
 
-# Fix de datums
-rentals['Start Date'] = pd.to_datetime(rentals['Start Date'], errors='coerce')
-rentals['date'] = rentals['Start Date'].dt.normalize()
-weather['date'] = pd.to_datetime(weather['Unnamed: 0'], errors='coerce').dt.normalize()
-
-# Bereken verhuur per dag
-rentals_per_day = rentals.groupby('date').size().reset_index(name='rentals')
-
-# Merge met echte data
-ml_data = pd.merge(weather, rentals_per_day, on='date', how='inner')
-
-# Toon aantal overlappende dagen
-st.info(f"🗓️ Overlappende dagen gevonden: **{len(ml_data)}**")
-
-# Toon voorbeelddata
-st.dataframe(ml_data[['date', 'tavg', 'rentals']].head(10))
