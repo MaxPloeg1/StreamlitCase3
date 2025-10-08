@@ -82,66 +82,35 @@ with tab1:
         st.subheader("🌦️ weather_london.csv")
         st.dataframe(weather.head(), use_container_width=True)
 
-    # ----------------------------------------------------------
-    # 📊 ALLE PLOTS OP ÉÉN PAGINA
-    # ----------------------------------------------------------
-    # Data voorbereiden
+
+    st.subheader("📊 Correlatie tussen fietsverhuringen en weersvariabelen")
+
+    # Samenvoegen van data
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.date
     rentals["date"] = pd.to_datetime(rentals["date"])
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-    # Aantal verhuringen per dag
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
-
-    # Merge met weerdata
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
-    merged["month"] = merged["date"].dt.month
 
-    st.subheader("📊 Data-analyse: Fietsverhuur & Weer in Londen")
+    # Selecteer alleen numerieke kolommen
+    num_cols = merged.select_dtypes(include=[np.number])
 
-    # 1️⃣ Dagelijkse verhuringen
-    fig1 = px.line(
-        merged, x="date", y="rentals",
-        title="📈 Dagelijkse fietsverhuringen in Londen",
-        labels={"date": "Datum", "rentals": "Aantal verhuringen"},
+    # Correlatie berekenen
+    corr_matrix = num_cols.corr()
+
+    # Plotly heatmap
+    fig_corr = px.imshow(
+        corr_matrix,
+        text_auto=True,
+        color_continuous_scale="RdBu_r",
+        title="📈 Correlatiematrix: Fietsverhuringen vs. Weersvariabelen",
+        labels=dict(color="Correlatiecoëfficiënt"),
         template="plotly_dark"
     )
-    st.plotly_chart(fig1, use_container_width=True)
-
-    # 2️⃣ Temperatuur vs verhuringen
-    fig2 = px.scatter(
-        merged, x="tavg", y="rentals",
-        color="tavg", color_continuous_scale="sunset",
-        title="🌡️ Temperatuur vs. Fietsverhuringen",
-        labels={"tavg": "Gemiddelde temperatuur (°C)", "rentals": "Aantal verhuringen"},
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # 3️⃣ Regen vs verhuringen
-    fig3 = px.scatter(
-        merged, x="prcp", y="rentals",
-        color="prcp", color_continuous_scale="Blues",
-        title="☔ Neerslag vs. Fietsverhuringen",
-        labels={"prcp": "Neerslag (mm)", "rentals": "Aantal verhuringen"},
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig3, use_container_width=True)
-
-    # 4️⃣ Maandelijkse trends
-    monthly_avg = merged.groupby("month")["rentals"].mean().reset_index()
-    fig4 = px.bar(
-        monthly_avg, x="month", y="rentals",
-        color="rentals", color_continuous_scale="Viridis",
-        title="📅 Gemiddeld aantal verhuringen per maand",
-        labels={"month": "Maand", "rentals": "Gemiddeld aantal verhuringen"},
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig4, use_container_width=True)
-        
-
+    st.plotly_chart(fig_corr, use_container_width=True)
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
