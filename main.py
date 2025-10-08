@@ -127,6 +127,31 @@ with tab1:
 
     st.pyplot(fig)
     st.write(f"Correlatiecoëfficiënt (r): **{r_value:.2f}**")
+
+    st.header("📊 Correlatie tussen Neerslag en Maximale Temperatuur")
+
+    weather = pd.read_csv("weather_london.csv")
+    weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
+    weather["date"] = pd.to_datetime(weather["date"])
+
+    # Verwijder rijen met missende waarden
+    df_corr2 = weather.dropna(subset=["prcp", "tmax"])
+
+    # Bereken regressielijn
+    slope2, intercept2, r_value2, p_value2, std_err2 = linregress(df_corr2["tmax"], df_corr2["prcp"])
+    line2 = slope2 * df_corr2["tmax"] + intercept2
+
+    # Plot
+    fig2, ax2 = plt.subplots()
+    ax2.scatter(df_corr2["tmax"], df_corr2["prcp"], color="navy", alpha=0.6, label="Waarnemingen")
+    ax2.plot(df_corr2["tmax"], line2, color="red", label=f"Regressielijn (r={r_value2:.2f})")
+    ax2.set_xlabel("Maximale temperatuur (°C)")
+    ax2.set_ylabel("Neerslag (mm)")
+    ax2.set_title("Correlatie tussen Neerslag en Maximale Temperatuur")
+    ax2.legend()
+
+    st.pyplot(fig2)
+    st.write(f"Correlatiecoëfficiënt (r): **{r_value2:.2f}**")
 # ----------------------------------------------------------
 # TAB 2 — INTERACTIEVE KAART MET KLEURCODES
 # ----------------------------------------------------------
