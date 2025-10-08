@@ -267,105 +267,130 @@ with tab2:
 
 
 # ----------------------------------------------------------
+ TAB 3 — TIJDREEKS & TRENDS + METROKAART
+# ----------------------------------------------------------
+with tab3:
+    st.header("📈 Tijdreeks Analyse & Metrokaart")
 
-import pandas as pd
-import plotly.graph_objects as go
-from sklearn.linear_model import LinearRegression
-import numpy as np
-import streamlit as st
+    # Keuzemenu voor weergave
+    view_option = st.radio("📊 Kies visualisatie", ["Fietsverhuur over tijd", "Correlatie met temperatuur", "Metrokaart"], horizontal=True)
 
-# Data inladen
-metropredict = pd.read_csv('https://raw.githubusercontent.com/Yuri194870/Londonderweg/refs/heads/main/metrokaart.csv')
+    # Voorbereiden data
+    rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], format="%d/%m/%Y %H:%M", errors="coerce")
+    rentals["date"] = rentals["Start Date"].dt.normalize()
+    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
 
-# Streamlit instellingen
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-color: #FFC72C; /* NS-geel */
-    }
-    html, body, [class*="st-"] {
-        color: #003082 !important;  /* NS-blauw */
-        font-family: Arial, sans-serif;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    if "Unnamed: 0" in weather.columns:
+        weather["date"] = pd.to_datetime(weather["Unnamed: 0"], errors="coerce")
+    elif "date" in weather.columns:
+        weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-# Titel en uitleg
-st.markdown("## 🚇 Metro voorspelling:")
-st.markdown("""
-Nu we weten hoeveel fietsen er worden verhuurd per dag, en waar deze voornamelijk staan,  
-kunnen we proberen een voorspelling te maken. Een voorspelling over het aantal reizigers  
-per metro kan ons meer inzicht geven in waar wij onze fietsen moeten gaan plaatsen.
+    weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
 
-**Let op**: de data is zeer aangetast door de pandemie in 2021!
-""")
+    if view_option == "Fietsverhuur over tijd":
+        st.subheader("📆 Dagelijkse fietsverhuringen")
+        fig_line = px.line(
+            weather_data,
+            x="date",
+            y="rentals",
+            title="Dagelijkse fietsverhuringen (observaties)",
+            labels={"date": "Datum", "rentals": "Aantal verhuringen"},
+            markers=True
+        )
+        fig_line.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white")
+        )
+        st.plotly_chart(fig_line, use_container_width=True)
 
-# Model trainen
-X = metropredict[['Jaar']]
-y = metropredict['Passagiers']
-model = LinearRegression()
-model.fit(X, y)
+    elif view_option == "Correlatie met temperatuur":
+        st.subheader("🌡️ Correlatie tussen temperatuur en verhuringen")
+        fig_scatter = px.scatter(
+            weather_data,
+            x="tavg",
+            y="rentals",
+            trendline="ols",
+            color="rentals",
+            color_continuous_scale="Viridis",
+            labels={"tavg": "Gem. temperatuur (°C)", "rentals": "Verhuringen"},
+            title="Relatie tussen temperatuur en aantal verhuringen"
+        )
+        fig_scatter.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white")
+        )
+        st.plotly_chart(fig_scatter, use_container_width=True)
 
-# Unieke stations
-stations = metropredict['name'].unique()
+    elif view_option == "Metrokaart":
+        st.subheader("🚇 Metrokaart van Londen")
 
-# Kleurenschema
-colors = [
-    "#00BFC4", "#F8766D", "#7CAE00", "#C77CFF", "#00BA38",
-    "#FF61C3", "#619CFF", "#F564E3", "#B79F00", "#E76BF3"
-]
+        try:
+            # Laad metrodata
+            stations_df = pd.read_csv("London stations.csv")
+            lines_df = pd.read_csv("London tube lines.csv")
 
-# Figuur opbouwen
-fig = go.Figure()
+            coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
 
-for i, station in enumerate(stations):
-    station_data = metropredict[metropredict['name'] == station]
-    X_train = station_data['Jaar'].values.reshape(-1, 1)
-    y_train = station_data['Passagiers'].values
-    
-    model.fit(X_train, y_train)
-    X_future = np.arange(2022, 2027).reshape(-1, 1)
-    y_pred = model.predict(X_future)
+            tube_colors = {
+                "Bakerloo": "saddlebrown",
+                "Central": "red",
+                "Circle": "gold",
+                "District": "green",
+                "Hammersmith & City": "pink",
+                "Jubilee": "grey",
+                "Metropolitan": "purple",
+                "Northern": "black",
+                "Piccadilly": "blue",
+                "Victoria": "deepskyblue",
+                "Waterloo & City": "turquoise",
+                "DLR": "lime",
+                "Overground": "orange",
+                "Elizabeth": "mediumslateblue"
+            }
 
-    color = colors[i % len(colors)]
+            show_stations = st.checkbox("Toon metrostations", value=True)
+            show_lines = st.checkbox("Toon metrolijnen", value=True)
 
-    # Historische data
-    fig.add_trace(go.Scatter(
-        x=station_data['Jaar'],
-        y=station_data['Passagiers'],
-        mode='lines+markers',
-        name=f"{station} - Historisch",
-        line=dict(color=color)
-    ))
+            map_center = [51.5074, -0.1278]
+            metro_map = folium.Map(location=map_center, zoom_start=11, tiles="cartodbpositron")
 
-    # Voorspelling
-    fig.add_trace(go.Scatter(
-        x=X_future.flatten(),
-        y=y_pred,
-        mode='lines',
-        name=f"{station} - Voorspelling",
-        line=dict(color=color, dash='dash')
-    ))
+            if show_lines:
+                for _, row in lines_df.iterrows():
+                    from_station = row["From Station"]
+                    to_station = row["To Station"]
+                    line = row["Tube Line"]
+                    if from_station in coord_dict and to_station in coord_dict:
+                        coords = [
+                            (coord_dict[from_station]["Latitude"], coord_dict[from_station]["Longitude"]),
+                            (coord_dict[to_station]["Latitude"], coord_dict[to_station]["Longitude"])
+                        ]
+                        folium.PolyLine(
+                            coords,
+                            color=tube_colors.get(line, "blue"),
+                            weight=3,
+                            tooltip=line
+                        ).add_to(metro_map)
 
-# Layout
-fig.update_layout(
-    title="Voorspelling passagiersaantallen per station",
-    xaxis_title="Jaar",
-    yaxis_title="Aantal passagiers",
-    template="plotly_white",
-    plot_bgcolor='rgba(255, 255, 255, 0.3)',
-    paper_bgcolor='rgba(255, 255, 255, 0.2)',
-    font=dict(color='#003082'),
-    legend=dict(
-        orientation="v",
-        bgcolor='rgba(255,255,255,0.6)'
-    )
-)
+            if show_stations:
+                for station, loc in coord_dict.items():
+                    folium.CircleMarker(
+                        location=[loc["Latitude"], loc["Longitude"]],
+                        radius=4,
+                        color="green",
+                        fill=True,
+                        popup=station
+                    ).add_to(metro_map)
 
-st.plotly_chart(fig)
+            st_folium(metro_map, width=1000, height=600)
+
+        except Exception as e:
+            st.error(f"Fout bij laden metrokaart: {e}")
+voeg de grafiek toe in deze code en haal deze 2 
+Fietsverhuur over tijd
+
+Correlatie met temperatuur weg
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
@@ -576,6 +601,7 @@ with tab5:
         st.write("Debug info:")
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
+
 
 
 
