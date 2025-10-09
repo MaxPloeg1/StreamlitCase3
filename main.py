@@ -397,49 +397,52 @@ with tab3:
         st_folium(metro_map, width=1000, height=600)
          st_folium(metro_map, width=1000, height=600)
         
-        # Extra visualisatie: gemiddeld aantal fietsverhuringen per station per temperatuurklasse
-        st.subheader("📊 Stationgebruik vs. Temperatuur")
-        
-        # Stap 1: Voeg datum toe aan rentals
-        rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
-        rentals["date"] = rentals["Start Date"].dt.normalize()
-        
-        # Stap 2: Bereken het aantal verhuringen per station per dag
-        station_daily = rentals.groupby(["Start Station", "date"]).size().reset_index(name="rentals")
-        
-        # Stap 3: Merge met weerdata
-        merged = station_daily.merge(weather[["date", "tavg"]], on="date", how="inner")
-        
-        # Stap 4: Categoriseer temperatuur (bijv. koud / gematigd / warm)
-        merged["Temp categorie"] = pd.cut(
-            merged["tavg"],
-            bins=[-10, 10, 20, 35],
-            labels=["Koud", "Gematigd", "Warm"]
-        )
-        
-        # Stap 5: Gemiddelde verhuringen per station per temperatuurcategorie
-        station_temp_avg = merged.groupby(["Start Station", "Temp categorie"])["rentals"].mean().reset_index()
-        
-        # Stap 6: Visualisatie
-        fig_station_temp = px.bar(
-            station_temp_avg,
-            x="Start Station",
-            y="rentals",
-            color="Temp categorie",
-            title="Gemiddeld aantal fietsverhuringen per station en temperatuurcategorie",
-            labels={"Start Station": "Station", "rentals": "Gem. verhuringen"}
-        )
-        fig_station_temp.update_layout(
-            xaxis_tickangle=-45,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"),
-            height=600
-        )
-        st.plotly_chart(fig_station_temp, use_container_width=True)
+    # Toon metrokaart
+st_folium(metro_map, width=1000, height=600)
 
-        except Exception as e:
-            st.error(f"Fout bij laden metrokaart: {e}")
+# Extra visualisatie: gemiddeld aantal fietsverhuringen per station per temperatuurklasse
+st.subheader("📊 Stationgebruik vs. Temperatuur")
+
+# Stap 1: Voeg datum toe aan rentals
+rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
+rentals["date"] = rentals["Start Date"].dt.normalize()
+
+# Stap 2: Bereken het aantal verhuringen per station per dag
+station_daily = rentals.groupby(["Start Station", "date"]).size().reset_index(name="rentals")
+
+# Stap 3: Merge met weerdata
+merged = station_daily.merge(weather[["date", "tavg"]], on="date", how="inner")
+
+# Stap 4: Categoriseer temperatuur (bijv. koud / gematigd / warm)
+merged["Temp categorie"] = pd.cut(
+    merged["tavg"],
+    bins=[-10, 10, 20, 35],
+    labels=["Koud", "Gematigd", "Warm"]
+)
+
+# Stap 5: Gemiddelde verhuringen per station per temperatuurcategorie
+station_temp_avg = merged.groupby(["Start Station", "Temp categorie"])["rentals"].mean().reset_index()
+
+# Stap 6: Visualisatie
+fig_station_temp = px.bar(
+    station_temp_avg,
+    x="Start Station",
+    y="rentals",
+    color="Temp categorie",
+    title="Gemiddeld aantal fietsverhuringen per station en temperatuurcategorie",
+    labels={"Start Station": "Station", "rentals": "Gem. verhuringen"}
+)
+fig_station_temp.update_layout(
+    xaxis_tickangle=-45,
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="white"),
+    height=600
+)
+st.plotly_chart(fig_station_temp, use_container_width=True)
+
+except Exception as e:
+    st.error(f"Fout bij laden metrokaart: {e}")
             
 #voeg de grafiek toe in deze code en haal deze 2 
 #Fietsverhuur over tijd
@@ -581,6 +584,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
