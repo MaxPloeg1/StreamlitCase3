@@ -413,51 +413,56 @@ with tab4:
     Pas de waarden hieronder aan en bekijk de voorspelling.
     """)
 
+    # -----------------------------
     # Data voorbereiden
+    # -----------------------------
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.date
     rentals["date"] = pd.to_datetime(rentals["date"], errors="coerce")
 
-    # Weerdata opschonen en kolomnamen controleren
+    # Weerdata opschonen
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-    # Alleen numerieke waarden behouden en ongeldige vervangen door NaN
     for col in ["tavg", "prcp", "wspd"]:
         if col in weather.columns:
             weather[col] = pd.to_numeric(weather[col], errors="coerce")
 
-    # Vul ontbrekende waarden op met kolomgemiddelde
     weather.fillna(weather.mean(numeric_only=True), inplace=True)
 
     # Combineer datasets
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Controleer of de benodigde kolommen aanwezig zijn
+    # Check vereiste kolommen
     required_cols = ["tavg", "prcp", "wspd", "rentals"]
-    missing = [c for c in required_cols if c not in merged.columns]
-    if missing:
-        st.error(f"❌ Ontbrekende kolommen in samengevoegde data: {missing}")
+    if not all(col in merged.columns for col in required_cols):
+        st.error("❌ Vereiste kolommen ontbreken in de data.")
         st.stop()
 
-    # Opschonen en alleen numerieke data behouden
+    # Verwijder ongeldige data
     merged = merged[required_cols].apply(pd.to_numeric, errors="coerce").dropna()
-
     if merged.empty:
-        st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer of 'tavg', 'prcp' en 'wspd' numeriek zijn.")
+        st.error("❌ Onvoldoende data om model te trainen.")
         st.stop()
 
-    # Features en target definiëren
-    features = ["tavg", "prcp", "wspd"]
-    X = merged[features]
+    # -----------------------------
+    # Model trainen
+    # -----------------------------
+    X = merged[["tavg", "prcp", "wspd"]]
     y = merged["rentals"]
 
-    # Train lineair regressiemodel
-    model = LinearRegression()
+    # Gebruik een niet-lineair model (beter voor realistische verbanden)
+    model = RandomForestRegressor(
+        n_estimators=200,
+        random_state=42,
+        max_depth=8
+    )
     model.fit(X, y)
 
-    # Gebruikersinvoer (temperatuur, neerslag, wind)
+    # -----------------------------
+    # Sliders voor invoer
+    # -----------------------------
     st.subheader("📋 Stel de weersomstandigheden in:")
 
     col1, col2, col3 = st.columns(3)
@@ -468,24 +473,33 @@ with tab4:
     with col3:
         wspd = int(st.slider("Windsnelheid (m/s)", 0, 15, int(round(merged["wspd"].mean()))))
 
-    # Maak voorspelling
+    # -----------------------------
+    # Voorspelling maken
+    # -----------------------------
     input_data = np.array([[tavg, prcp, wspd]])
     prediction = model.predict(input_data)[0]
 
-    # Afronden naar een heel getal
-    prediction_int = int(round(prediction))
+    # Geen negatieve waarden toestaan + afronden
+    prediction_int = max(0, int(round(prediction)))
 
-    # Toon resultaat
+    # -----------------------------
+    # Resultaat tonen
+    # -----------------------------
     st.markdown("---")
     st.subheader("📈 Verwachte fietsverhuringen")
     st.markdown(f"<h1 style='text-align:center; color:#FFD700;'>{prediction_int:,}</h1>", unsafe_allow_html=True)
 
-    # Modelprestaties berekenen
+    # Modelprestaties
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
+    # Toon ook coëfficiëntenbelang
+    st.markdown("### 📊 Belangrijkste invloeden op de voorspelling:")
+    importances = pd.Series(model.feature_importances_, index=["Temperatuur", "Neerslag", "Wind"])
+    st.bar_chart(importances)
 
 
 
