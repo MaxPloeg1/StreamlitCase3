@@ -421,12 +421,21 @@ with tab4:
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner").dropna()
 
-    # Features kiezen
+   # Features kiezen en opschonen
     features = ["tavg", "tmax", "tmin", "wspd", "prcp"]
+    
+    # Alleen numerieke waarden behouden
+    merged = merged[features + ["rentals"]].apply(pd.to_numeric, errors="coerce").dropna()
+    
     X = merged[features]
     y = merged["rentals"]
-
-    # Train eenvoudig lineair model
+    
+    # Controleer of de data geldig is
+    if X.empty:
+        st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer de kolommen tavg, tmax, tmin, wspd en prcp.")
+        st.stop()
+    
+    # Train het lineaire model
     model = LinearRegression()
     model.fit(X, y)
 
