@@ -409,16 +409,17 @@ with tab4:
     st.header("🔮 Voorspellingsmodel")
 
     st.markdown("""
-    Dit model voorspelt het verwachte aantal fietsverhuringen op een dag, 
+    Dit model voorspelt het verwachte aantal fietsverhuringen op een dag 
     op basis van temperatuur, neerslag, maand en dag van de week.
     """)
 
+    # -----------------------------
     # Data voorbereiden
+    # -----------------------------
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.date
     rentals["date"] = pd.to_datetime(rentals["date"], errors="coerce")
 
-    # Weerdata opschonen
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
@@ -428,36 +429,36 @@ with tab4:
 
     weather.fillna(weather.mean(numeric_only=True), inplace=True)
 
-    # Combineer datasets
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Voeg tijdskenmerken toe
+    # Tijdvariabelen toevoegen
     merged["month"] = merged["date"].dt.month
     merged["day_of_week"] = merged["date"].dt.dayofweek  # 0 = maandag, 6 = zondag
 
-    # Opschonen
     merged = merged[["tavg", "prcp", "month", "day_of_week", "rentals"]].dropna()
 
     if merged.empty:
         st.error("❌ Geen bruikbare data om model te trainen.")
         st.stop()
 
-    # Features en target
+    # -----------------------------
+    # Model trainen
+    # -----------------------------
     X = merged[["tavg", "prcp", "month", "day_of_week"]]
     y = merged["rentals"]
 
-    # One-hot encoding voor categorische variabelen (maand en dag)
     categorical_features = ["month", "day_of_week"]
     numeric_features = ["tavg", "prcp"]
 
-    preprocessor = ColumnTransformer([
-        ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
-        ("num", "passthrough", numeric_features)
-    ])
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
+            ("num", "passthrough", numeric_features)
+        ]
+    )
 
-    # RandomForest-model voor betere prestaties
-    model = Pipeline([
+    model = Pipeline(steps=[
         ("preprocessor", preprocessor),
         ("regressor", RandomForestRegressor(
             n_estimators=300,
@@ -466,40 +467,76 @@ with tab4:
         ))
     ])
 
-    # Model trainen
     model.fit(X, y)
 
+    # -----------------------------
     # Gebruikersinvoer
+    # -----------------------------
     st.subheader("📋 Stel de weersomstandigheden in:")
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        tavg = int(st.slider("Gem. temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
+        tavg = int(st.slider("Gem. temperatuur (°C)", -10, 40, int(round(merged["tavg"].mean()))))
     with col2:
-        prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
+        prcp = int(st.slider("Neerslag (mm)", 0, 30, int(round(merged["prcp"].mean()))))
     with col3:
         month = st.slider("Maand", 1, 12, int(merged["month"].median()))
     with col4:
         day_of_week = st.slider("Dag van week (0=ma, 6=zo)", 0, 6, 2)
 
+    # -----------------------------
+    # Logische temperatuurcontrole
+    # -----------------------------
+    # Gemiddelde temperatuur per maand (ongeveer voor Londen)
+    realistic_temps = {
+        1: (-3, 10),   # januari
+        2: (-2, 11),   # februari
+        3: (0, 15),    # maart
+        4: (4, 18),    # april
+        5: (8, 23),    # mei
+        6: (12, 27),   # juni
+        7: (15, 30),   # juli
+        8: (14, 30),   # augustus
+        9: (10, 25),   # september
+        10: (6, 20),   # oktober
+        11: (2, 15),   # november
+        12: (-2, 12)   # december
+    }
+
+    min_temp, max_temp = realistic_temps[month]
+
+    if tavg < min_temp or tavg > max_temp:
+        st.error(
+            f"⚠️ Onrealistische temperatuur voor maand {month}. "
+            f"Verwacht bereik: {min_temp}°C tot {max_temp}°C."
+        )
+        st.stop()  # Stop verdere uitvoering van het model
+
+    # -----------------------------
     # Voorspelling
+    # -----------------------------
     input_data = pd.DataFrame([{
         "tavg": tavg,
         "prcp": prcp,
         "month": month,
         "day_of_week": day_of_week
     }])
+
     prediction = model.predict(input_data)[0]
     prediction_int = int(round(prediction))
 
+    # -----------------------------
+    # Resultaat
+    # -----------------------------
     st.markdown("---")
     st.subheader("📈 Verwachte fietsverhuringen")
     st.markdown(f"<h1 style='text-align:center; color:#FFD700;'>{prediction_int:,}</h1>", unsafe_allow_html=True)
 
-    # Prestatie-evaluatie
+    # Prestatie
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
