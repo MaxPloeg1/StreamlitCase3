@@ -404,8 +404,8 @@ with tab4:
     st.header("🔮 Voorspellingsmodel")
 
     st.markdown("""
-    Met dit model kun je voorspellen hoeveel fietsen er op een dag verhuurd zullen worden, 
-    op basis van temperatuur en neerslag. Pas de waarden hieronder aan en bekijk de voorspelling.
+    Dit model voorspelt het verwachte aantal fietsverhuringen op een dag, 
+    op basis van temperatuur, neerslag, maand en dag van de week.
     """)
 
     # Data voorbereiden
@@ -413,65 +413,85 @@ with tab4:
     rentals["date"] = rentals["Start Date"].dt.date
     rentals["date"] = pd.to_datetime(rentals["date"], errors="coerce")
 
-    # Weerdata opschonen en kolomnamen controleren
+    # Weerdata opschonen
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-    # Alleen numerieke waarden behouden en ongeldige vervangen door NaN
     for col in ["tavg", "prcp"]:
         if col in weather.columns:
             weather[col] = pd.to_numeric(weather[col], errors="coerce")
 
-    # Vul ontbrekende waarden op met kolomgemiddelde
     weather.fillna(weather.mean(numeric_only=True), inplace=True)
 
     # Combineer datasets
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Controleer of de benodigde kolommen aanwezig zijn
-    required_cols = ["tavg", "prcp", "rentals"]
-    missing = [c for c in required_cols if c not in merged.columns]
-    if missing:
-        st.error(f"❌ Ontbrekende kolommen in samengevoegde data: {missing}")
-        st.stop()
+    # Voeg tijdskenmerken toe
+    merged["month"] = merged["date"].dt.month
+    merged["day_of_week"] = merged["date"].dt.dayofweek  # 0 = maandag, 6 = zondag
 
-    # Opschonen en alleen numerieke data behouden
-    merged = merged[required_cols].apply(pd.to_numeric, errors="coerce").dropna()
+    # Opschonen
+    merged = merged[["tavg", "prcp", "month", "day_of_week", "rentals"]].dropna()
 
     if merged.empty:
-        st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer of 'tavg' en 'prcp' numeriek zijn.")
+        st.error("❌ Geen bruikbare data om model te trainen.")
         st.stop()
 
-    # Features en target definiëren
-    features = ["tavg", "prcp"]
-    X = merged[features]
+    # Features en target
+    X = merged[["tavg", "prcp", "month", "day_of_week"]]
     y = merged["rentals"]
 
-    # Train lineair regressiemodel
-    model = LinearRegression()
+    # One-hot encoding voor categorische variabelen (maand en dag)
+    categorical_features = ["month", "day_of_week"]
+    numeric_features = ["tavg", "prcp"]
+
+    preprocessor = ColumnTransformer([
+        ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
+        ("num", "passthrough", numeric_features)
+    ])
+
+    # RandomForest-model voor betere prestaties
+    model = Pipeline([
+        ("preprocessor", preprocessor),
+        ("regressor", RandomForestRegressor(
+            n_estimators=300,
+            max_depth=12,
+            random_state=42
+        ))
+    ])
+
+    # Model trainen
     model.fit(X, y)
 
-    # Gebruikersinvoer (alleen temperatuur en neerslag)
+    # Gebruikersinvoer
     st.subheader("📋 Stel de weersomstandigheden in:")
 
-    # Sliders met integerwaarden
-    tavg = int(st.slider("Gemiddelde temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
-    prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        tavg = int(st.slider("Gem. temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
+    with col2:
+        prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
+    with col3:
+        month = st.slider("Maand", 1, 12, int(merged["month"].median()))
+    with col4:
+        day_of_week = st.slider("Dag van week (0=ma, 6=zo)", 0, 6, 2)
 
-    # Maak voorspelling
-    input_data = np.array([[tavg, prcp]])
+    # Voorspelling
+    input_data = pd.DataFrame([{
+        "tavg": tavg,
+        "prcp": prcp,
+        "month": month,
+        "day_of_week": day_of_week
+    }])
     prediction = model.predict(input_data)[0]
-
-    # Afronden naar een heel getal
     prediction_int = int(round(prediction))
 
-    # Toon resultaat
     st.markdown("---")
     st.subheader("📈 Verwachte fietsverhuringen")
     st.markdown(f"<h1 style='text-align:center; color:#FFD700;'>{prediction_int:,}</h1>", unsafe_allow_html=True)
 
-    # Modelprestaties berekenen
+    # Prestatie-evaluatie
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
     mae = mean_absolute_error(y, y_pred)
