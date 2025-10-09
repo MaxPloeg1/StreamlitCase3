@@ -403,7 +403,7 @@ with tab3:
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGSMODEL
 # ----------------------------------------------------------
-with st.container():
+with tab4:  st.container():
     st.header("🔮 Voorspellingsmodel")
 
     st.markdown("""
@@ -474,4 +474,5 @@ with st.container():
         font=dict(color="white")
     )
     st.plotly_chart(fig_pred, use_container_width=True)
+
 
