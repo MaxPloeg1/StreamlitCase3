@@ -10,7 +10,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
-from sklearn.ensemble import RandomForestRegressor
 
 # ----------------------------------------------------------
 # PAGINA-INSTELLINGEN
@@ -406,94 +405,75 @@ with tab4:
 
     st.markdown("""
     Met dit model kun je voorspellen hoeveel fietsen er op een dag verhuurd zullen worden, 
-    op basis van temperatuur, neerslag en windsnelheid. 
-    Pas de waarden hieronder aan en bekijk de voorspelling.
+    op basis van temperatuur en neerslag. Pas de waarden hieronder aan en bekijk de voorspelling.
     """)
 
-    # -----------------------------
     # Data voorbereiden
-    # -----------------------------
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.date
     rentals["date"] = pd.to_datetime(rentals["date"], errors="coerce")
 
-    # Weerdata opschonen
+    # Weerdata opschonen en kolomnamen controleren
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-    for col in ["tavg", "prcp", "wspd"]:
+    # Alleen numerieke waarden behouden en ongeldige vervangen door NaN
+    for col in ["tavg", "prcp"]:
         if col in weather.columns:
             weather[col] = pd.to_numeric(weather[col], errors="coerce")
 
+    # Vul ontbrekende waarden op met kolomgemiddelde
     weather.fillna(weather.mean(numeric_only=True), inplace=True)
 
     # Combineer datasets
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
-    # Check vereiste kolommen
-    required_cols = ["tavg", "prcp", "wspd", "rentals"]
-    if not all(col in merged.columns for col in required_cols):
-        st.error("❌ Vereiste kolommen ontbreken in de data.")
+    # Controleer of de benodigde kolommen aanwezig zijn
+    required_cols = ["tavg", "prcp", "rentals"]
+    missing = [c for c in required_cols if c not in merged.columns]
+    if missing:
+        st.error(f"❌ Ontbrekende kolommen in samengevoegde data: {missing}")
         st.stop()
 
-    # Verwijder ongeldige data
+    # Opschonen en alleen numerieke data behouden
     merged = merged[required_cols].apply(pd.to_numeric, errors="coerce").dropna()
+
     if merged.empty:
-        st.error("❌ Onvoldoende data om model te trainen.")
+        st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer of 'tavg' en 'prcp' numeriek zijn.")
         st.stop()
 
-    # -----------------------------
-    # Model trainen
-    # -----------------------------
-    X = merged[["tavg", "prcp", "wspd"]]
+    # Features en target definiëren
+    features = ["tavg", "prcp"]
+    X = merged[features]
     y = merged["rentals"]
 
-    # Gebruik een niet-lineair model (beter voor realistische verbanden)
-    model = RandomForestRegressor(
-        n_estimators=200,
-        random_state=42,
-        max_depth=8
-    )
+    # Train lineair regressiemodel
+    model = LinearRegression()
     model.fit(X, y)
 
-    # -----------------------------
-    # Sliders voor invoer
-    # -----------------------------
+    # Gebruikersinvoer (alleen temperatuur en neerslag)
     st.subheader("📋 Stel de weersomstandigheden in:")
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        tavg = int(st.slider("Gemiddelde temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
-    with col2:
-        prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
-    with col3:
-        wspd = int(st.slider("Windsnelheid (m/s)", 0, 15, int(round(merged["wspd"].mean()))))
+    # Sliders met integerwaarden
+    tavg = int(st.slider("Gemiddelde temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
+    prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
 
-    # -----------------------------
-    # Voorspelling maken
-    # -----------------------------
-    input_data = np.array([[tavg, prcp, wspd]])
+    # Maak voorspelling
+    input_data = np.array([[tavg, prcp]])
     prediction = model.predict(input_data)[0]
 
-    # Geen negatieve waarden toestaan + afronden
-    prediction_int = max(0, int(round(prediction)))
+    # Afronden naar een heel getal
+    prediction_int = int(round(prediction))
 
-    # -----------------------------
-    # Resultaat tonen
-    # -----------------------------
+    # Toon resultaat
     st.markdown("---")
     st.subheader("📈 Verwachte fietsverhuringen")
     st.markdown(f"<h1 style='text-align:center; color:#FFD700;'>{prediction_int:,}</h1>", unsafe_allow_html=True)
 
-    # Modelprestaties
+    # Modelprestaties berekenen
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
-
-    # Toon ook coëfficiëntenbelang
-    st.markdown("### 📊 Belangrijkste invloeden op de voorspelling:")
-    importances = pd.Series(model.feature_importances_, index=["Temperatuur", "Neerslag", "Wind"])
-    st.bar_chart(importances)
