@@ -487,20 +487,20 @@ with tab4:
     # -----------------------------
     # Logische temperatuurcontrole
     # -----------------------------
-    # Gemiddelde temperatuur per maand (ongeveer voor Londen)
+    # Aangepaste temperatuurgrenzen per maand
     realistic_temps = {
-        1: (-3, 10),   # januari
-        2: (-2, 11),   # februari
-        3: (0, 15),    # maart
-        4: (4, 18),    # april
-        5: (8, 23),    # mei
-        6: (12, 27),   # juni
-        7: (15, 30),   # juli
-        8: (14, 30),   # augustus
-        9: (10, 25),   # september
-        10: (6, 20),   # oktober
-        11: (2, 15),   # november
-        12: (-2, 12)   # december
+        1: (-5, 15),   # januari
+        2: (-5, 15),   # februari
+        3: (-2, 18),   # maart
+        4: (2, 22),    # april
+        5: (6, 28),    # mei
+        6: (10, 40),   # juni
+        7: (12, 40),   # juli
+        8: (12, 40),   # augustus
+        9: (8, 30),    # september
+        10: (4, 22),   # oktober
+        11: (0, 18),   # november
+        12: (-5, 15)   # december
     }
 
     min_temp, max_temp = realistic_temps[month]
@@ -538,5 +538,6 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
