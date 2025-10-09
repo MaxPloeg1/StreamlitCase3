@@ -412,33 +412,48 @@ with tab4:
     # Data voorbereiden
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.date
-    rentals["date"] = pd.to_datetime(rentals["date"])
+    rentals["date"] = pd.to_datetime(rentals["date"], errors="coerce")
 
+    # Weerdata opschonen en kolomnamen controleren
     weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
-    # Combineer data
-    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
-    merged = pd.merge(rentals_per_day, weather, on="date", how="inner").dropna()
+    # Alleen numerieke waarden behouden en ongeldige vervangen door NaN
+    for col in ["tavg", "tmax", "tmin", "wspd", "prcp"]:
+        if col in weather.columns:
+            weather[col] = pd.to_numeric(weather[col], errors="coerce")
 
-   # Features kiezen en opschonen
-    features = ["tavg", "tmax", "tmin", "wspd", "prcp"]
-    
-    # Alleen numerieke waarden behouden
-    merged = merged[features + ["rentals"]].apply(pd.to_numeric, errors="coerce").dropna()
-    
-    X = merged[features]
-    y = merged["rentals"]
-    
-    # Controleer of de data geldig is
-    if X.empty:
+    # Vul ontbrekende waarden op met kolomgemiddelde
+    weather.fillna(weather.mean(numeric_only=True), inplace=True)
+
+    # Combineer datasets
+    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
+    merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
+
+    # Controleer of de benodigde kolommen aanwezig zijn
+    required_cols = ["tavg", "tmax", "tmin", "wspd", "prcp", "rentals"]
+    missing = [c for c in required_cols if c not in merged.columns]
+    if missing:
+        st.error(f"❌ Ontbrekende kolommen in samengevoegde data: {missing}")
+        st.stop()
+
+    # Opschonen en alleen numerieke data behouden
+    merged = merged[required_cols].apply(pd.to_numeric, errors="coerce").dropna()
+
+    if merged.empty:
         st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer de kolommen tavg, tmax, tmin, wspd en prcp.")
         st.stop()
-    
-    # Train het lineaire model
+
+    # Features en target definiëren
+    features = ["tavg", "tmax", "tmin", "wspd", "prcp"]
+    X = merged[features]
+    y = merged["rentals"]
+
+    # Train lineair regressiemodel
     model = LinearRegression()
     model.fit(X, y)
 
+    # Gebruikersinvoer
     st.subheader("📋 Stel de weersomstandigheden in:")
 
     col1, col2, col3 = st.columns(3)
@@ -459,14 +474,14 @@ with tab4:
     st.subheader("📈 Voorspelling")
     st.metric("Verwacht aantal verhuringen", f"{int(prediction):,}")
 
-    # Modelprestaties tonen
+    # Modelprestaties berekenen
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
 
-    # Extra visualisatie
+    # Visualisatie — voorspelde vs. werkelijke waarden
     fig_pred = px.scatter(
         x=y,
         y=y_pred,
@@ -481,9 +496,6 @@ with tab4:
         font=dict(color="white")
     )
     st.plotly_chart(fig_pred, use_container_width=True)
-
-
-
 
 
 
