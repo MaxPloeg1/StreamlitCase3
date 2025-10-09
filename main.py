@@ -401,6 +401,9 @@ with tab3:
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
 
+# ----------------------------------------------------------
+# TAB 4 — VOORSPELLINGSMODEL
+# ----------------------------------------------------------
 with tab4:
     st.header("🔮 Voorspellingsmodel")
 
@@ -454,10 +457,11 @@ with tab4:
     model.fit(X, y)
 
     # Gebruikersinvoer (alleen temperatuur en neerslag)
-    st.subheader("📋 Stel de weersomstandigheden in:")
+    st.subheader("Stel de weersomstandigheden in:")
 
-    tavg = st.slider("Gemiddelde temperatuur (°C)", -5.0, 35.0, float(merged["tavg"].mean()))
-    prcp = st.slider("Neerslag (mm)", 0.0, 20.0, float(merged["prcp"].mean()))
+    # Sliders met integerwaarden
+    tavg = int(st.slider("Gemiddelde temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
+    prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
 
     # Maak voorspelling
     input_data = np.array([[tavg, prcp]])
@@ -474,7 +478,6 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
-    #end
 
 
 
