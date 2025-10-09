@@ -279,7 +279,6 @@ with tab2:
         st.write("Stations columns:", stations.columns.tolist())
 
  #TAB 3 — TIJDREEKS & TRENDS + METROKAART
-# ----------------------------------------------------------
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
 
@@ -394,70 +393,12 @@ with tab3:
                         popup=station
                     ).add_to(metro_map)
 
-        st_folium(metro_map, width=1000, height=600)
-         st_folium(metro_map, width=1000, height=600)
-        
-    # Toon metrokaart
-st_folium(metro_map, width=1000, height=600)
+            st_folium(metro_map, width=1000, height=600)
 
-try:
-    if show_stations:
-        for station, loc in coord_dict.items():
-            folium.CircleMarker(
-                location=[loc["Latitude"], loc["Longitude"]],
-                radius=4,
-                color="green",
-                fill=True,
-                popup=station
-            ).add_to(metro_map)
-
-    # Toon metrokaart
-    st_folium(metro_map, width=1000, height=600)
-
-    # 📊 Extra visualisatie: gemiddeld aantal fietsverhuringen per station per temperatuurklasse
-    st.subheader("📊 Stationgebruik vs. Temperatuur")
-
-    # Stap 1: Datum toevoegen
-    rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
-    rentals["date"] = rentals["Start Date"].dt.normalize()
-
-    # Stap 2: Verhuringen per station per dag
-    station_daily = rentals.groupby(["Start Station", "date"]).size().reset_index(name="rentals")
-
-    # Stap 3: Merge met weerdata
-    merged = station_daily.merge(weather[["date", "tavg"]], on="date", how="inner")
-
-    # Stap 4: Categoriseer temperatuur
-    merged["Temp categorie"] = pd.cut(
-        merged["tavg"],
-        bins=[-10, 10, 20, 35],
-        labels=["Koud", "Gematigd", "Warm"]
-    )
-
-    # Stap 5: Gemiddelde verhuringen per station per temperatuurcategorie
-    station_temp_avg = merged.groupby(["Start Station", "Temp categorie"])["rentals"].mean().reset_index()
-
-    # Stap 6: Visualisatie
-    fig_station_temp = px.bar(
-        station_temp_avg,
-        x="Start Station",
-        y="rentals",
-        color="Temp categorie",
-        title="Gemiddeld aantal fietsverhuringen per station en temperatuurcategorie",
-        labels={"Start Station": "Station", "rentals": "Gem. verhuringen"}
-    )
-    fig_station_temp.update_layout(
-        xaxis_tickangle=-45,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white"),
-        height=600
-    )
-    st.plotly_chart(fig_station_temp, use_container_width=True)
-
-# ⬇️ LET OP: except hoort direct na try: te staan (geen extra inspringing)
-except Exception as e:
-    st.error(f"Fout bij laden metrokaart of visualisatie: {e}")
+        except Exception as e:
+            st.error(f"Fout bij laden metrokaart: {e}")
+#voeg de grafiek toe in deze code en haal deze 2 
+#Fietsverhuur over tijd
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
@@ -594,6 +535,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
