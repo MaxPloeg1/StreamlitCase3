@@ -10,6 +10,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
+from sklearn.ensemble import RandomForestRegressor
 
 # ----------------------------------------------------------
 # PAGINA-INSTELLINGEN
@@ -400,10 +401,6 @@ with tab3:
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
-
-# ----------------------------------------------------------
-# TAB 4 — VOORSPELLINGSMODEL
-# ----------------------------------------------------------
 with tab4:
     st.header("🔮 Voorspellingsmodel")
 
@@ -500,7 +497,3 @@ with tab4:
     st.markdown("### 📊 Belangrijkste invloeden op de voorspelling:")
     importances = pd.Series(model.feature_importances_, index=["Temperatuur", "Neerslag", "Wind"])
     st.bar_chart(importances)
-
-
-
-
