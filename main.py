@@ -401,6 +401,33 @@ with tab3:
                 height=500
             )
             st.plotly_chart(fig_bar, use_container_width=True)
+            import plotly.express as px
+
+# Voeg gemiddelde temperatuur over 2017 toe
+avg_temp_2017 = weather[weather["year"] == 2017]["tavg"].mean()
+entry_exit["avg_temp_2017"] = avg_temp_2017
+
+# Toon correlatie per station
+st.subheader("📉 Correlatie: temperatuur vs passagiers per station (2017)")
+
+fig_corr_station = px.scatter(
+    entry_exit,
+    x="avg_temp_2017",
+    y="AnnualEntryExit_Mill",
+    text="Station",
+    title="Relatie tussen gem. temperatuur (2017) en passagiersaantal per station",
+    labels={"avg_temp_2017": "Gem. temperatuur (°C)", "AnnualEntryExit_Mill": "Passagiers (mln)"},
+    trendline="ols"
+)
+fig_corr_station.update_traces(textposition='top center')
+fig_corr_station.update_layout(
+    height=600,
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="white")
+)
+
+st.plotly_chart(fig_corr_station, use_container_width=True)
 
         except Exception as e:
             st.error(f"Fout bij laden metrokaart of visualisatie: {e}")
@@ -540,6 +567,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
