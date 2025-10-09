@@ -295,41 +295,18 @@ with tab3:
         weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
     weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
+    weather["year"] = weather["date"].dt.year
 
     if view_option == "Fietsverhuur over tijd":
         st.subheader("📆 Dagelijkse fietsverhuringen")
-        fig_line = px.line(
-            weather_data,
-            x="date",
-            y="rentals",
-            title="Dagelijkse fietsverhuringen (observaties)",
-            labels={"date": "Datum", "rentals": "Aantal verhuringen"},
-            markers=True
-        )
-        fig_line.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white")
-        )
+        fig_line = px.line(weather_data, x="date", y="rentals", title="Dagelijkse fietsverhuringen (observaties)", labels={"date": "Datum", "rentals": "Aantal verhuringen"}, markers=True)
+        fig_line.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
         st.plotly_chart(fig_line, use_container_width=True)
 
     elif view_option == "Correlatie met temperatuur":
         st.subheader("🌡️ Correlatie tussen temperatuur en verhuringen")
-        fig_scatter = px.scatter(
-            weather_data,
-            x="tavg",
-            y="rentals",
-            trendline="ols",
-            color="rentals",
-            color_continuous_scale="Viridis",
-            labels={"tavg": "Gem. temperatuur (°C)", "rentals": "Verhuringen"},
-            title="Relatie tussen temperatuur en aantal verhuringen"
-        )
-        fig_scatter.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white")
-        )
+        fig_scatter = px.scatter(weather_data, x="tavg", y="rentals", trendline="ols", color="rentals", color_continuous_scale="Viridis", labels={"tavg": "Gem. temperatuur (°C)", "rentals": "Verhuringen"}, title="Relatie tussen temperatuur en aantal verhuringen")
+        fig_scatter.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
         st.plotly_chart(fig_scatter, use_container_width=True)
 
     elif view_option == "Metrokaart":
@@ -368,69 +345,42 @@ with tab3:
 
             if show_stations:
                 for station, loc in coord_dict.items():
-                    folium.CircleMarker(
-                        location=[loc["Latitude"], loc["Longitude"]],
-                        radius=4,
-                        color="green",
-                        fill=True,
-                        popup=station
-                    ).add_to(metro_map)
+                    folium.CircleMarker(location=[loc["Latitude"], loc["Longitude"]], radius=4, color="green", fill=True, popup=station).add_to(metro_map)
 
             st_folium(metro_map, width=1000, height=600)
 
-            # 🎯 PASSAGIERS PER STATION GRAFIEK (TOP 20)
+            # 📊 Passagiersaantallen per station (2017)
             st.subheader("📊 Passagiersaantallen per station (2017)")
             entry_exit = pd.read_csv("2017_Entry_Exit.csv")
             passengers_yearly = entry_exit[["Station", "AnnualEntryExit_Mill"]].copy()
             passengers_yearly.rename(columns={"AnnualEntryExit_Mill": "Aantal passagiers"}, inplace=True)
 
             top_20 = passengers_yearly.sort_values(by="Aantal passagiers", ascending=False).head(20)
-            fig_bar = px.bar(
-                top_20,
-                x="Station",
-                y="Aantal passagiers",
-                title="Top 20 metrostations op basis van passagiers (in miljoenen)",
-                labels={"Aantal passagiers": "Passagiers (mln)"},
-                color="Aantal passagiers"
-            )
-            fig_bar.update_layout(
-                xaxis_tickangle=-45,
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
-                height=500
-            )
+            fig_bar = px.bar(top_20, x="Station", y="Aantal passagiers", title="Top 20 metrostations op basis van passagiers (in miljoenen)", labels={"Aantal passagiers": "Passagiers (mln)"}, color="Aantal passagiers")
+            fig_bar.update_layout(xaxis_tickangle=-45, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"), height=500)
             st.plotly_chart(fig_bar, use_container_width=True)
-            import plotly.express as px
 
-# Voeg gemiddelde temperatuur over 2017 toe
-avg_temp_2017 = weather[weather["year"] == 2017]["tavg"].mean()
-entry_exit["avg_temp_2017"] = avg_temp_2017
+            # 📉 Correlatie tussen temperatuur en drukte per station (2017)
+            st.subheader("📉 Correlatie: temperatuur vs passagiers per station (2017)")
+            avg_temp_2017 = weather[weather["year"] == 2017]["tavg"].mean()
+            entry_exit["avg_temp_2017"] = avg_temp_2017
 
-# Toon correlatie per station
-st.subheader("📉 Correlatie: temperatuur vs passagiers per station (2017)")
-
-fig_corr_station = px.scatter(
-    entry_exit,
-    x="avg_temp_2017",
-    y="AnnualEntryExit_Mill",
-    text="Station",
-    title="Relatie tussen gem. temperatuur (2017) en passagiersaantal per station",
-    labels={"avg_temp_2017": "Gem. temperatuur (°C)", "AnnualEntryExit_Mill": "Passagiers (mln)"},
-    trendline="ols"
-)
-fig_corr_station.update_traces(textposition='top center')
-fig_corr_station.update_layout(
-    height=600,
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="white")
-)
-
-st.plotly_chart(fig_corr_station, use_container_width=True)
+            fig_corr_station = px.scatter(
+                entry_exit,
+                x="avg_temp_2017",
+                y="AnnualEntryExit_Mill",
+                text="Station",
+                title="Relatie tussen gem. temperatuur (2017) en passagiersaantal per station",
+                labels={"avg_temp_2017": "Gem. temperatuur (°C)", "AnnualEntryExit_Mill": "Passagiers (mln)"},
+                trendline="ols"
+            )
+            fig_corr_station.update_traces(textposition='top center')
+            fig_corr_station.update_layout(height=600, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+            st.plotly_chart(fig_corr_station, use_container_width=True)
 
         except Exception as e:
             st.error(f"Fout bij laden metrokaart of visualisatie: {e}")
+
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
@@ -567,6 +517,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
