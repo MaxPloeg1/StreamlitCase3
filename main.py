@@ -400,11 +400,7 @@ with tab3:
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
 
-# ----------------------------------------------------------
-# TAB 4 — VOORSPELLINGSMODEL
-# ----------------------------------------------------------
-with tab4:  
-    st.container():
+with tab4:
     st.header("🔮 Voorspellingsmodel")
 
     st.markdown("""
@@ -475,6 +471,8 @@ with tab4:
         font=dict(color="white")
     )
     st.plotly_chart(fig_pred, use_container_width=True)
+
+
 
 
 
