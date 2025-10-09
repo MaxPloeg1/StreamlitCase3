@@ -279,80 +279,24 @@ with tab2:
         st.write("Stations columns:", stations.columns.tolist())
 
 # TAB 3 — TIJDREEKS & TRENDS + METROKAART
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import folium
-from streamlit_folium import st_folium
-
-# Pagina-instellingen instellen
-st.set_page_config(layout="wide")
-st.title("🚲📊 London Transport Dashboard")
-
-# Data inladen
-try:
-    rentals = pd.read_csv("bike_rentals.csv")
-    weather = pd.read_csv("weather_london.csv")
-    passengers = pd.read_csv("2017_Entry_Exit.csv")
-    stations_df = pd.read_csv("London stations.csv")
-    lines_df = pd.read_csv("London tube lines.csv")
-except Exception as e:
-    st.error(f"Fout bij inladen bestanden: {e}")
-
-# TAB 1 — Fietsverhuur over tijd
-with st.container():
-    st.header("📈 Tijdreeks fietsverhuringen over tijd")
-    rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
-    rentals["date"] = rentals["Start Date"].dt.date
-    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
-    fig_line = px.line(rentals_per_day, x="date", y="rentals", title="Aantal fietsverhuringen per dag")
-    st.plotly_chart(fig_line, use_container_width=True)
-
-# TAB 2 — Correlatie met temperatuur
-with st.container():
-    st.header("🌡️ Correlatie met temperatuur")
-    try:
-        weather["date"] = pd.to_datetime(weather.iloc[:, 0], errors="coerce")
-        rentals_per_day["date"] = pd.to_datetime(rentals_per_day["date"], errors="coerce")
-        merged_weather = pd.merge(rentals_per_day, weather, on="date", how="inner")
-
-        fig_scatter = px.scatter(
-            merged_weather,
-            x="tavg",
-            y="rentals",
-            title="Relatie tussen temperatuur en aantal fietsverhuringen",
-            labels={"tavg": "Gemiddelde temperatuur (°C)", "rentals": "Aantal verhuringen"},
-            trendline="ols"
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True)
-    except Exception as e:
-        st.error(f"Fout bij correlatievisualisatie: {e}")
-
-# TAB 3 — Metrokaart + passagiersdata + correlatie
-with st.container():
-    st.header("🚇 Metrokaart & Passagiers")
+with tab3:
+    st.header("🚇 Metrokaart & Passagiersdata")
 
     try:
+        # Metrokaart
+        stations_df = pd.read_csv("London stations.csv")
+        lines_df = pd.read_csv("London tube lines.csv")
+
         coord_dict = stations_df.set_index("Station")[["Latitude", "Longitude"]].to_dict("index")
 
         tube_colors = {
-            "Bakerloo": "saddlebrown",
-            "Central": "red",
-            "Circle": "gold",
-            "District": "green",
-            "Hammersmith & City": "pink",
-            "Jubilee": "grey",
-            "Metropolitan": "purple",
-            "Northern": "black",
-            "Piccadilly": "blue",
-            "Victoria": "deepskyblue",
-            "Waterloo & City": "turquoise",
-            "DLR": "lime",
-            "Overground": "orange",
-            "Elizabeth": "mediumslateblue"
+            "Bakerloo": "saddlebrown", "Central": "red", "Circle": "gold",
+            "District": "green", "Hammersmith & City": "pink", "Jubilee": "grey",
+            "Metropolitan": "purple", "Northern": "black", "Piccadilly": "blue",
+            "Victoria": "deepskyblue", "Waterloo & City": "turquoise",
+            "DLR": "lime", "Overground": "orange", "Elizabeth": "mediumslateblue"
         }
 
-        # Metrokaart
         map_center = [51.5074, -0.1278]
         metro_map = folium.Map(location=map_center, zoom_start=11, tiles="cartodbpositron")
 
@@ -370,46 +314,66 @@ with st.container():
         for station, loc in coord_dict.items():
             folium.CircleMarker(
                 location=[loc["Latitude"], loc["Longitude"]],
-                radius=4,
-                color="green",
-                fill=True,
-                popup=station
+                radius=4, color="green", fill=True, popup=station
             ).add_to(metro_map)
 
-        st.subheader("Londen Metrokaart")
+        st.subheader("🔍 Metrokaart van Londen")
         st_folium(metro_map, width=1000, height=600)
 
-        # Passagiersdata voorbereiden
-        station_col = passengers.columns[0]
-        pass_col = passengers.columns[1]  # '2017'
-        passengers = passengers.rename(columns={station_col: "Station", pass_col: "Passengers"})
+    except Exception as e:
+        st.error(f"Fout bij laden metrokaart: {e}")
 
-        passengers_sorted = passengers.sort_values("Passengers", ascending=False).head(20)
-        fig_pass = px.bar(passengers_sorted, x="Station", y="Passengers",
-                          title="Top 20 Drukste Stations in 2017",
-                          labels={"Passengers": "Aantal passagiers"},
-                          color_discrete_sequence=['skyblue'])
-        fig_pass.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig_pass, use_container_width=True)
+    try:
+        # Bar chart - passagiersaantallen
+        entry_exit = pd.read_csv("2017_Entry_Exit.csv")
+        entry_exit_sorted = entry_exit.sort_values("2017", ascending=False).head(20)
 
-        # Correlatie tussen temperatuur en drukte
-        avg_temp_2017 = weather["tavg"].mean()
-        passengers_sorted["Gem Temp 2017"] = avg_temp_2017
-        fig_corr = px.scatter(
-            passengers_sorted,
-            x="Gem Temp 2017",
-            y="Passengers",
-            text="Station",
-            title="Relatie tussen gem. temperatuur (2017) en passagiersaantal per station",
-            labels={"Passengers": "Aantal passagiers (mln)", "Gem Temp 2017": "Gemiddelde temperatuur (C)"}
+        fig_bar = px.bar(
+            entry_exit_sorted,
+            x="Station",
+            y="2017",
+            title="Top 20 drukste stations (2017)",
+            labels={"2017": "Aantal passagiers", "Station": "Station"},
+            color_discrete_sequence=["lightskyblue"]
         )
-        fig_corr.update_traces(textposition='top center')
+        fig_bar.update_layout(
+            xaxis_tickangle=-45,
+            font=dict(color="white"),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)"
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Fout bij laden passagiersdata: {e}")
+
+    try:
+        # Correlatie met temperatuur
+        weather = pd.read_csv("weather_london.csv")
+        weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
+        weather["year"] = weather["date"].dt.year
+        avg_temp_2017 = weather[weather["year"] == 2017]["tavg"].mean()
+
+        entry_exit["avg_temp"] = avg_temp_2017  # Voeg toe aan elke station
+
+        fig_corr = px.scatter(
+            entry_exit,
+            x="avg_temp",
+            y="2017",
+            hover_name="Station",
+            title="📈 Correlatie tussen temperatuur en passagiersaantal (2017)",
+            labels={"avg_temp": "Gemiddelde temperatuur (°C)", "2017": "Passagiers"},
+            opacity=0.7
+        )
+        fig_corr.update_layout(
+            font=dict(color="white"),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)"
+        )
         st.plotly_chart(fig_corr, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Fout bij laden metrokaart of visualisaties: {e}")
-
-
+        st.error(f"Fout bij visualisatie correlatie met weerdata: {e}")
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
@@ -546,6 +510,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
