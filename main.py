@@ -396,6 +396,7 @@ with tab3:
             st_folium(metro_map, width=1000, height=600)
 
         except Exception as e:
+            st.error(f"Fout bij laden metrokaart: {e}")
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
 with tab4:
@@ -531,6 +532,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
