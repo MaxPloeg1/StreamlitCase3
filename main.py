@@ -490,11 +490,11 @@ with tab4:
     # Aangepaste temperatuurgrenzen per maand
     realistic_temps = {
         1: (-5, 15),   # januari
-        2: (-5, 15),   # februari
-        3: (-2, 18),   # maart
+        2: (-5, 20),   # februari
+        3: (-2, 20),   # maart
         4: (2, 22),    # april
         5: (6, 28),    # mei
-        6: (10, 40),   # juni
+        6: (10, 35),   # juni
         7: (12, 40),   # juli
         8: (12, 40),   # augustus
         9: (8, 30),    # september
@@ -538,6 +538,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
