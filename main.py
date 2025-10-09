@@ -409,7 +409,8 @@ with tab4:
 
     st.markdown("""
     Met dit model kun je voorspellen hoeveel fietsen er op een dag verhuurd zullen worden, 
-    op basis van temperatuur en neerslag. Pas de waarden hieronder aan en bekijk de voorspelling.
+    op basis van temperatuur, neerslag en windsnelheid. 
+    Pas de waarden hieronder aan en bekijk de voorspelling.
     """)
 
     # Data voorbereiden
@@ -422,7 +423,7 @@ with tab4:
     weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
 
     # Alleen numerieke waarden behouden en ongeldige vervangen door NaN
-    for col in ["tavg", "prcp"]:
+    for col in ["tavg", "prcp", "wspd"]:
         if col in weather.columns:
             weather[col] = pd.to_numeric(weather[col], errors="coerce")
 
@@ -434,7 +435,7 @@ with tab4:
     merged = pd.merge(rentals_per_day, weather, on="date", how="inner")
 
     # Controleer of de benodigde kolommen aanwezig zijn
-    required_cols = ["tavg", "prcp", "rentals"]
+    required_cols = ["tavg", "prcp", "wspd", "rentals"]
     missing = [c for c in required_cols if c not in merged.columns]
     if missing:
         st.error(f"❌ Ontbrekende kolommen in samengevoegde data: {missing}")
@@ -444,11 +445,11 @@ with tab4:
     merged = merged[required_cols].apply(pd.to_numeric, errors="coerce").dropna()
 
     if merged.empty:
-        st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer of 'tavg' en 'prcp' numeriek zijn.")
+        st.error("❌ Onvoldoende numerieke data om het model te trainen. Controleer of 'tavg', 'prcp' en 'wspd' numeriek zijn.")
         st.stop()
 
     # Features en target definiëren
-    features = ["tavg", "prcp"]
+    features = ["tavg", "prcp", "wspd"]
     X = merged[features]
     y = merged["rentals"]
 
@@ -456,21 +457,28 @@ with tab4:
     model = LinearRegression()
     model.fit(X, y)
 
-    # Gebruikersinvoer (alleen temperatuur en neerslag)
-    st.subheader("Stel de weersomstandigheden in:")
+    # Gebruikersinvoer (temperatuur, neerslag, wind)
+    st.subheader("📋 Stel de weersomstandigheden in:")
 
-    # Sliders met integerwaarden
-    tavg = int(st.slider("Gemiddelde temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
-    prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        tavg = int(st.slider("Gemiddelde temperatuur (°C)", -5, 35, int(round(merged["tavg"].mean()))))
+    with col2:
+        prcp = int(st.slider("Neerslag (mm)", 0, 20, int(round(merged["prcp"].mean()))))
+    with col3:
+        wspd = int(st.slider("Windsnelheid (m/s)", 0, 15, int(round(merged["wspd"].mean()))))
 
     # Maak voorspelling
-    input_data = np.array([[tavg, prcp]])
+    input_data = np.array([[tavg, prcp, wspd]])
     prediction = model.predict(input_data)[0]
+
+    # Afronden naar een heel getal
+    prediction_int = int(round(prediction))
 
     # Toon resultaat
     st.markdown("---")
     st.subheader("📈 Verwachte fietsverhuringen")
-    st.markdown(f"<h1 style='text-align:center; color:#FFD700;'>{int(prediction):,}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='text-align:center; color:#FFD700;'>{prediction_int:,}</h1>", unsafe_allow_html=True)
 
     # Modelprestaties berekenen
     y_pred = model.predict(X)
@@ -478,6 +486,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
