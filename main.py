@@ -399,3 +399,79 @@ with tab3:
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
+
+# ----------------------------------------------------------
+# TAB 4 — VOORSPELLINGSMODEL
+# ----------------------------------------------------------
+with st.container():
+    st.header("🔮 Voorspellingsmodel")
+
+    st.markdown("""
+    Met dit model kun je voorspellen hoeveel fietsen er op een dag verhuurd zullen worden, 
+    op basis van weersomstandigheden. Pas de waarden hieronder aan en bekijk de voorspelling.
+    """)
+
+    # Data voorbereiden
+    rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], errors="coerce")
+    rentals["date"] = rentals["Start Date"].dt.date
+    rentals["date"] = pd.to_datetime(rentals["date"])
+
+    weather.rename(columns={weather.columns[0]: "date"}, inplace=True)
+    weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
+
+    # Combineer data
+    rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
+    merged = pd.merge(rentals_per_day, weather, on="date", how="inner").dropna()
+
+    # Features kiezen
+    features = ["tavg", "tmax", "tmin", "wspd", "prcp"]
+    X = merged[features]
+    y = merged["rentals"]
+
+    # Train eenvoudig lineair model
+    model = LinearRegression()
+    model.fit(X, y)
+
+    st.subheader("📋 Stel de weersomstandigheden in:")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        tavg = st.slider("Gemiddelde temperatuur (°C)", -5.0, 35.0, float(merged["tavg"].mean()))
+        tmax = st.slider("Maximale temperatuur (°C)", 0.0, 40.0, float(merged["tmax"].mean()))
+    with col2:
+        tmin = st.slider("Minimale temperatuur (°C)", -10.0, 30.0, float(merged["tmin"].mean()))
+        wspd = st.slider("Windsnelheid (m/s)", 0.0, 15.0, float(merged["wspd"].mean()))
+    with col3:
+        prcp = st.slider("Neerslag (mm)", 0.0, 20.0, float(merged["prcp"].mean()))
+
+    # Maak voorspelling
+    input_data = np.array([[tavg, tmax, tmin, wspd, prcp]])
+    prediction = model.predict(input_data)[0]
+
+    st.markdown("---")
+    st.subheader("📈 Voorspelling")
+    st.metric("Verwacht aantal verhuringen", f"{int(prediction):,}")
+
+    # Modelprestaties tonen
+    y_pred = model.predict(X)
+    r2 = r2_score(y, y_pred)
+    mae = mean_absolute_error(y, y_pred)
+
+    st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
+    # Extra visualisatie
+    fig_pred = px.scatter(
+        x=y,
+        y=y_pred,
+        labels={"x": "Werkelijke verhuringen", "y": "Voorspelde verhuringen"},
+        title="Voorspelde vs. werkelijke verhuringen",
+        trendline="ols",
+        color_discrete_sequence=["#FFD700"]
+    )
+    fig_pred.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+    st.plotly_chart(fig_pred, use_container_width=True)
+
