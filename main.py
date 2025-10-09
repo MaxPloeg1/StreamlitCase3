@@ -10,6 +10,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_absolute_error
 
 # ----------------------------------------------------------
 # PAGINA-INSTELLINGEN
@@ -497,3 +502,4 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
