@@ -326,23 +326,28 @@ with tab3:
     try:
         # Bar chart - passagiersaantallen
         entry_exit = pd.read_csv("2017_Entry_Exit.csv")
-        entry_exit_sorted = entry_exit.sort_values("2017", ascending=False).head(20)
+        entry_exit.columns = entry_exit.columns.str.strip()  # verwijder spaties uit kolomnamen
 
-        fig_bar = px.bar(
-            entry_exit_sorted,
-            x="Station",
-            y="2017",
-            title="Top 20 drukste stations (2017)",
-            labels={"2017": "Aantal passagiers", "Station": "Station"},
-            color_discrete_sequence=["lightskyblue"]
-        )
-        fig_bar.update_layout(
-            xaxis_tickangle=-45,
-            font=dict(color="white"),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)"
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        if "2017" not in entry_exit.columns:
+            st.error(f"Kolom '2017' niet gevonden. Beschikbare kolommen: {list(entry_exit.columns)}")
+        else:
+            entry_exit_sorted = entry_exit.sort_values("2017", ascending=False).head(20)
+
+            fig_bar = px.bar(
+                entry_exit_sorted,
+                x="Station",
+                y="2017",
+                title="Top 20 drukste stations (2017)",
+                labels={"2017": "Aantal passagiers", "Station": "Station"},
+                color_discrete_sequence=["lightskyblue"]
+            )
+            fig_bar.update_layout(
+                xaxis_tickangle=-45,
+                font=dict(color="white"),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)"
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
 
     except Exception as e:
         st.error(f"Fout bij laden passagiersdata: {e}")
@@ -350,27 +355,37 @@ with tab3:
     try:
         # Correlatie met temperatuur
         weather = pd.read_csv("weather_london.csv")
-        weather["date"] = pd.to_datetime(weather["date"], errors="coerce")
-        weather["year"] = weather["date"].dt.year
-        avg_temp_2017 = weather[weather["year"] == 2017]["tavg"].mean()
+        weather.columns = weather.columns.str.strip()
 
-        entry_exit["avg_temp"] = avg_temp_2017  # Voeg toe aan elke station
+        # Zoek correcte kolom voor datum
+        date_col = [col for col in weather.columns if "date" in col.lower() or "time" in col.lower()]
+        if not date_col:
+            st.error("Geen datumkolom gevonden in weather_london.csv")
+        else:
+            weather["date"] = pd.to_datetime(weather[date_col[0]], errors="coerce")
+            weather["year"] = weather["date"].dt.year
+            avg_temp_2017 = weather[weather["year"] == 2017]["tavg"].mean()
 
-        fig_corr = px.scatter(
-            entry_exit,
-            x="avg_temp",
-            y="2017",
-            hover_name="Station",
-            title="📈 Correlatie tussen temperatuur en passagiersaantal (2017)",
-            labels={"avg_temp": "Gemiddelde temperatuur (°C)", "2017": "Passagiers"},
-            opacity=0.7
-        )
-        fig_corr.update_layout(
-            font=dict(color="white"),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)"
-        )
-        st.plotly_chart(fig_corr, use_container_width=True)
+            if "2017" not in entry_exit.columns:
+                st.error("Kolom '2017' ontbreekt voor correlatieplot.")
+            else:
+                entry_exit["avg_temp"] = avg_temp_2017  # Voeg gemiddelde toe
+
+                fig_corr = px.scatter(
+                    entry_exit,
+                    x="avg_temp",
+                    y="2017",
+                    hover_name="Station",
+                    title="📈 Correlatie tussen temperatuur en passagiersaantal (2017)",
+                    labels={"avg_temp": "Gemiddelde temperatuur (°C)", "2017": "Passagiers"},
+                    opacity=0.7
+                )
+                fig_corr.update_layout(
+                    font=dict(color="white"),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_corr, use_container_width=True)
 
     except Exception as e:
         st.error(f"Fout bij visualisatie correlatie met weerdata: {e}")
@@ -510,6 +525,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
