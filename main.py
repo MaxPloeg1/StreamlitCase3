@@ -62,10 +62,11 @@ bike_col = "nbBikes"
 # ----------------------------------------------------------
 # TABSTRUCTUUR
 # ----------------------------------------------------------
-tab1, tab2, tab3, = st.tabs([
+tab1, tab2, tab3, tab4, = st.tabs([
     "📊 Data Exploration", 
     "🚲 Fietsstations & Kaart", 
     "📈 Tijdreeks & Trends", 
+    "🔮 Voorspellingsmodel"
 ])
 
 # ----------------------------------------------------------
@@ -471,6 +472,7 @@ with tab4:
         font=dict(color="white")
     )
     st.plotly_chart(fig_pred, use_container_width=True)
+
 
 
 
