@@ -278,14 +278,18 @@ with tab2:
         st.write("Rentals columns:", rentals.columns.tolist())
         st.write("Stations columns:", stations.columns.tolist())
 
- #TAB 3 — TIJDREEKS & TRENDS + METROKAART
+# TAB 3 — TIJDREEKS & TRENDS + METROKAART
 with tab3:
     st.header("📈 Tijdreeks Analyse & Metrokaart")
 
     # Keuzemenu voor weergave
-    view_option = st.radio("📊 Kies visualisatie", ["Fietsverhuur over tijd", "Correlatie met temperatuur", "Metrokaart"], horizontal=True)
+    view_option = st.radio("📊 Kies visualisatie", [
+        "Fietsverhuur over tijd",
+        "Correlatie met temperatuur",
+        "Metrokaart"
+    ], horizontal=True)
 
-    # Voorbereiden data
+    # Data voorbereiden
     rentals["Start Date"] = pd.to_datetime(rentals["Start Date"], format="%d/%m/%Y %H:%M", errors="coerce")
     rentals["date"] = rentals["Start Date"].dt.normalize()
     rentals_per_day = rentals.groupby("date").size().reset_index(name="rentals")
@@ -298,7 +302,7 @@ with tab3:
     weather_data = weather.merge(rentals_per_day, on="date", how="inner").dropna(subset=["rentals"])
 
     if view_option == "Fietsverhuur over tijd":
-        st.subheader("📆 Dagelijkse fietsverhuringen")
+        st.subheader("🗖️ Dagelijkse fietsverhuringen")
         fig_line = px.line(
             weather_data,
             x="date",
@@ -337,7 +341,7 @@ with tab3:
         st.subheader("🚇 Metrokaart van Londen")
 
         try:
-            # Laad metrodata
+            # Metrokaart tekenen
             stations_df = pd.read_csv("London stations.csv")
             lines_df = pd.read_csv("London tube lines.csv")
 
@@ -395,10 +399,53 @@ with tab3:
 
             st_folium(metro_map, width=1000, height=600)
 
+            # Grafiek onder metrokaart - Passagiersaantallen per station
+            st.subheader("\U0001f4ca Passagiersaantallen en correlatie met temperatuur")
+            entry_exit = pd.read_csv("2017_Entry_Exit.csv")
+            weather_london = pd.read_csv("weather_london.csv")
+
+            # Zorg dat data bruikbaar is
+            if "Entries" in entry_exit.columns and "Exits" in entry_exit.columns:
+                entry_exit["Passengers"] = entry_exit["Entries"] + entry_exit["Exits"]
+            elif "Passagiers" in entry_exit.columns:
+                entry_exit["Passengers"] = entry_exit["Passagiers"]
+
+            if "Year" not in weather_london.columns:
+                weather_london["date"] = pd.to_datetime(weather_london["date"], errors="coerce")
+                weather_london["Year"] = weather_london["date"].dt.year
+                weather_yearly = weather_london.groupby("Year")["tavg"].mean().reset_index(name="avg_temp")
+            else:
+                weather_yearly = weather_london[["Year", "avg_temp"]].copy()
+
+            merged = entry_exit.merge(weather_yearly, on="Year", how="inner")
+
+            fig_pass = px.line(
+                merged,
+                x="Year",
+                y="Passengers",
+                color="Station",
+                title="Passagiersaantallen per station per jaar",
+                labels={"Passengers": "Aantal passagiers", "Year": "Jaar"}
+            )
+
+            fig_corr = px.scatter(
+                merged,
+                x="avg_temp",
+                y="Passengers",
+                color="Station",
+                trendline="ols",
+                title="Correlatie tussen temperatuur en passagiersaantallen",
+                labels={"avg_temp": "Gem. temperatuur (°C)", "Passengers": "Aantal passagiers"}
+            )
+
+            fig_pass.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+            fig_corr.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+
+            st.plotly_chart(fig_pass, use_container_width=True)
+            st.plotly_chart(fig_corr, use_container_width=True)
+
         except Exception as e:
-            st.error(f"Fout bij laden metrokaart: {e}")
-#voeg de grafiek toe in deze code en haal deze 2 
-#Fietsverhuur over tijd
+            st.error(f"Fout bij laden metrokaart of visualisatie: {e}")
 # ----------------------------------------------------------
 # TAB 4 — VOORSPELLINGEN MET MACHINE LEARNING (ALLEEN ÉCHTE DATA + DATUMFIX)
 # ----------------------------------------------------------
@@ -535,6 +582,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
