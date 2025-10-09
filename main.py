@@ -395,7 +395,7 @@ with tab3:
                     ).add_to(metro_map)
 
         st_folium(metro_map, width=1000, height=600)
-                    st_folium(metro_map, width=1000, height=600)
+         st_folium(metro_map, width=1000, height=600)
         
         # Extra visualisatie: gemiddeld aantal fietsverhuringen per station per temperatuurklasse
         st.subheader("📊 Stationgebruik vs. Temperatuur")
@@ -581,6 +581,7 @@ with tab4:
     mae = mean_absolute_error(y, y_pred)
 
     st.markdown(f"**Modelprestatie:** R² = {r2:.2f} | MAE = {mae:.0f}")
+
 
 
 
